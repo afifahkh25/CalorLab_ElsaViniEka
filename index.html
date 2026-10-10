@@ -1,0 +1,2057 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CalorLab - Heat Explorer Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        sidebar: '#191970',
+                        mainbg: '#DDF3FF',
+                        cardbg: '#FFFFFF',
+                        accent: '#191970',
+                        accenthover: '#2642b5',
+                        highlight: '#FFD166',
+                        konduksiPrimary: '#FF7A3D',
+                        konduksiAccent: '#E94B3C',
+                        konduksiBg: '#FFF5EF',
+                        konveksiPrimary: '#3FA7D6',
+                        konveksiAccent: '#2EC4B6',
+                        konveksiBg: '#EFFAFF',
+                        radiasiPrimary: '#D98CFF',
+                        radiasiAccent: '#F4B942',
+                        radiasiBg: '#FCF5FF'
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @keyframes evapDrop {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-50px) scale(0.6); opacity: 0; }
+        }
+        .drop-steam { animation: evapDrop 1.2s infinite ease-out; }
+
+        @keyframes circUp {
+            0% { transform: translateY(25px); opacity: 0.3; color: #E94B3C; }
+            50% { opacity: 1; }
+            100% { transform: translateY(-25px); opacity: 0.3; color: #3FA7D6; }
+        }
+        @keyframes circDown {
+            0% { transform: translateY(-25px); opacity: 0.3; color: #3FA7D6; }
+            50% { opacity: 1; }
+            100% { transform: translateY(25px); opacity: 0.3; color: #3FA7D6; }
+        }
+        .flow-up { animation: circUp 1.5s infinite linear; }
+        .flow-down { animation: circDown 1.8s infinite linear; }
+
+        @keyframes sunBounce {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-8px) scale(1.05); }
+        }
+        .animate-sun { animation: sunBounce 2s infinite ease-in-out; }
+
+        @keyframes floatAvatar {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-6px) rotate(2deg); }
+        }
+        .explorer-avatar { animation: floatAvatar 3s infinite ease-in-out; }
+
+        @keyframes trophyPop {
+            0% { transform: scale(0.5); opacity: 0; }
+            70% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-trophy { animation: trophyPop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+
+        @keyframes heatFlow {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 100% 50%; }
+        }
+        .animate-metal {
+            background: linear-gradient(90deg, #E94B3C, #FFD166, #191970, #E94B3C);
+            background-size: 300% 100%;
+            animation: heatFlow 3s infinite linear;
+        }
+    </style>
+</head>
+<body class="bg-mainbg text-slate-800 font-sans antialiased h-screen overflow-hidden flex" onload="playProfHeatGreeting()">
+
+    <!-- MODAL JUARA -->
+    <div id="modal-juara" class="fixed inset-0 bg-black/70 z-[9999] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-8 max-w-md w-full text-center space-y-5 shadow-2xl animate-trophy border-4 border-accent">
+            <div class="text-7xl">🏆🔥</div>
+            <div class="space-y-2">
+                <h3 class="text-2xl font-extrabold text-slate-900">LUAR BIASA, JUARA!</h3>
+                <p id="modal-score-text" class="text-sm text-slate-600 font-medium">Kamu berhasil menjawab seluruh soal dengan benar!</p>
+            </div>
+            <div class="bg-blue-50 border border-blue-200 p-4 rounded-2xl">
+                <span class="text-xs text-blue-800 font-bold">Gelar Kehormatan:</span>
+                <p class="text-lg font-black text-accent">MASTER OF HEAT SCIENCE 🌟</p>
+            </div>
+            <button onclick="closeJuaraModal()" class="w-full bg-accent hover:bg-accenthover text-white font-bold py-3.5 rounded-xl shadow-lg transition cursor-pointer text-sm">
+                Lanjutkan Petualangan 🚀
+            </button>
+        </div>
+    </div>
+
+    <!-- SIDEBAR KIRI -->
+    <aside class="w-72 bg-sidebar text-blue-100 flex flex-col justify-between p-4 select-none shadow-xl z-50">
+        <div>
+            <div class="flex items-center space-x-3 mb-4 px-2">
+                <div class="bg-white/20 p-2.5 rounded-xl text-highlight">
+                    <i class="fa-solid fa-fire text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg text-white tracking-wide">CALORLAB</h1>
+                    <p id="explorer-level-badge" class="text-xs text-highlight font-semibold">Level: Heat Rookie 🐣</p>
+                </div>
+            </div>
+
+            <!-- Menu Navigasi -->
+            <nav class="space-y-1 overflow-y-auto max-h-[calc(100vh-200px)] pr-1 text-sm">
+                <button onclick="switchTab('beranda')" id="btn-beranda" class="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl bg-white text-sidebar font-bold shadow transition cursor-pointer">
+                    <i class="fa-solid fa-house w-5 text-emerald-500"></i><span>Beranda Utama</span>
+                </button>
+                <button onclick="switchTab('video')" id="btn-video" class="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-blue-100 hover:bg-white/10 hover:text-white transition cursor-pointer">
+                    <i class="fa-solid fa-clapperboard w-5 text-highlight"></i><span>Heat In Action</span>
+                </button>
+                <button onclick="switchTab('memory')" id="btn-memory" class="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-blue-100 hover:bg-white/10 hover:text-white transition cursor-pointer">
+                    <i class="fa-solid fa-book-bookmark w-5 text-highlight"></i><span>Memory Lab</span>
+                </button>
+
+                <div class="pt-2 pb-1 px-3 text-[11px] font-bold uppercase tracking-wider text-blue-300">VIRTUAL LAB</div>
+                
+                <button onclick="switchTab('lab-kalor')" id="btn-lab-kalor" class="w-full flex items-center space-x-3 px-3.5 py-2 rounded-lg text-blue-100 hover:bg-white/10 hover:text-white transition cursor-pointer">
+                    <i class="fa-solid fa-temperature-three-quarters w-5 text-orange-400"></i><span>1. Eksperimen Kalor</span>
+                </button>
+                <button onclick="switchTab('lab-wujud')" id="btn-lab-wujud" class="w-full flex items-center space-x-3 px-3.5 py-2 rounded-lg text-blue-100 hover:bg-white/10 hover:text-white transition cursor-pointer">
+                    <i class="fa-solid fa-snowflake w-5 text-sky-400"></i><span>2. Perubahan Wujud</span>
+                </button>
+                <button onclick="switchTab('lab-grafik')" id="btn-lab-grafik" class="w-full flex items-center space-x-3 px-3.5 py-2 rounded-lg text-blue-100 hover:bg-white/10 hover:text-white transition cursor-pointer">
+                    <i class="fa-solid fa-chart-line w-5 text-emerald-400"></i><span>3. Grafik Pemanasan</span>
+                </button>
+                <button onclick="switchTab('lab-penguapan')" id="btn-lab-penguapan" class="w-full flex items-center space-x-3 px-3.5 py-2 rounded-lg text-blue-100 hover:bg-white/10 hover:text-white transition cursor-pointer">
+                    <i class="fa-solid fa-wind w-5 text-teal-300"></i><span>4. Penguapan</span>
+                </button>
+                <button onclick="switchTab('lab-black')" id="btn-lab-black" class="w-full flex items-center space-x-3 px-3.5 py-2 rounded-lg text-blue-100 hover:bg-white/10 hover:text-white transition cursor-pointer">
+                    <i class="fa-solid fa-scale-balanced w-5 text-amber-300"></i><span>5. Asas Black</span>
+                </button>
+                <button onclick="switchTab('lab-perpindahan')" id="btn-lab-perpindahan" class="w-full flex items-center space-x-3 px-3.5 py-2 rounded-lg text-blue-100 hover:bg-white/10 hover:text-white transition cursor-pointer">
+                    <i class="fa-solid fa-fire-flame-curved w-5 text-red-400"></i><span>6. Perpindahan Kalor</span>
+                </button>
+                <button onclick="switchTab('lab-lokal')" id="btn-lab-lokal" class="w-full flex items-center space-x-3 px-3.5 py-2 rounded-lg text-blue-100 hover:bg-white/10 hover:text-white transition cursor-pointer">
+                    <i class="fa-solid fa-earth-asia w-5 text-highlight"></i><span>7. Kearifan Lokal</span>
+                </button>
+
+                <hr class="border-blue-400/30 my-2">
+                <button onclick="switchTab('challenge')" id="btn-challenge" class="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-blue-100 hover:bg-white/10 hover:text-white transition cursor-pointer">
+                    <i class="fa-solid fa-puzzle-piece w-5 text-highlight"></i><span>Physics Challenge</span>
+                </button>
+                <button onclick="switchTab('asesmen')" id="btn-asesmen" class="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-blue-100 hover:bg-white/10 hover:text-white transition cursor-pointer">
+                    <i class="fa-solid fa-clipboard-check w-5 text-red-300"></i><span>Asesmen</span>
+                </button>
+            </nav>
+        </div>
+
+        <div class="bg-black/10 p-3 rounded-xl border border-blue-400/20 text-xs space-y-1">
+            <div class="flex justify-between items-center">
+                <span class="text-blue-200 flex items-center gap-1.5"><i class="fa-solid fa-coins text-highlight"></i> Koin</span>
+                <span id="score-display" class="font-bold text-highlight text-sm">0 🪙</span>
+            </div>
+            <p class="text-white font-semibold pt-1">Pengembang: Elsa Vini E.</p>
+        </div>
+    </aside>
+
+    <!-- KONTEN UTAMA -->
+    <main class="flex-1 flex flex-col h-full overflow-y-auto p-8 space-y-6">
+        
+        <!-- BERANDA -->
+        <div id="content-beranda" class="tab-content flex flex-col space-y-6 flex-1">
+            <div class="bg-gradient-to-r from-sidebar via-[#2543b5] to-[#203a94] text-white p-8 rounded-2xl shadow-lg relative overflow-hidden flex justify-between items-center border-t-4 border-highlight">
+                <div class="relative z-10 max-w-xl space-y-3">
+                    <div class="inline-block bg-white/20 text-highlight text-xs font-bold px-3 py-1 rounded-full backdrop-blur">Heat Explorer Hub 🏠</div>
+                    <h2 class="text-3xl font-extrabold tracking-wide">Jelajahi Dunia Kalor & Perpindahannya</h2>
+                    <p class="text-blue-100 text-sm leading-relaxed">
+                        Halo Penjelajah! Bersama Prof. Heat, mari tonton video cerita <b>Heat In Action</b>, pelajari rumus di <b>Memory Lab</b>, selami eksperimen lab virtual, selesaikan 5 Physics Challenge dengan layout pertanyaan dan gambar berdampingan, serta taklukkan Asesmen!
+                    </p>
+                    <div class="flex gap-3 pt-2">
+                        <button onclick="switchTab('memory')" class="bg-highlight text-sidebar hover:bg-amber-400 font-bold px-6 py-2.5 rounded-xl text-sm shadow-md transition cursor-pointer flex items-center gap-2">
+                            Buka Memory Lab <i class="fa-solid fa-book-bookmark"></i>
+                        </button>
+                        <button onclick="playProfHeatGreeting()" class="bg-white/10 hover:bg-white/20 text-white font-bold px-4 py-2.5 rounded-xl text-sm transition cursor-pointer flex items-center gap-2 border border-white/20">
+                            <i class="fa-solid fa-volume-high text-highlight"></i> Suara Prof. Heat
+                        </button>
+                    </div>
+                </div>
+                <div class="hidden md:flex flex-col items-center explorer-avatar z-10 bg-white/10 p-6 rounded-3xl backdrop-blur border border-white/20 text-center shadow-xl">
+                    <div class="text-6xl mb-1">🧑‍🔬🔥</div>
+                    <span class="text-xs font-bold text-highlight">Prof. Heat Explorer</span>
+                    <span class="text-[10px] text-blue-100">Pemandu Lab Kalor</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-cardbg border border-blue-200 p-6 rounded-2xl shadow-sm border-t-4 border-highlight">
+                    <div class="text-2xl font-extrabold text-sidebar mb-1">Heat In Action</div>
+                    <h3 class="font-bold text-slate-900 text-sm">Prof. Heat In Action</h3>
+                    <p class="text-xs text-slate-500 mt-1">Tonton video lengkap tentang kalor dan perpindahannya.</p>
+                </div>
+                <div class="bg-cardbg border border-blue-200 p-6 rounded-2xl shadow-sm border-t-4 border-accent">
+                    <div class="text-2xl font-extrabold text-accent mb-1">Lab Interaktif</div>
+                    <h3 class="font-bold text-slate-900 text-sm">Eksperimen Kalor, Perubahan Wujud, Grafik Pemanasan, Penguapan, Asas Black, Perpindahan Kalor, Kearifan Lokal</h3>
+                    <p class="text-xs text-slate-500 mt-1">Eksperimen mengenai kalor dalam kehidupan sehari-hari.</p>
+                </div>
+                <div class="bg-cardbg border border-blue-200 p-6 rounded-2xl shadow-sm border-t-4 border-highlight">
+                    <div class="text-2xl font-extrabold text-sidebar mb-1">Physic Challenge</div>
+                    <h3 class="font-bold text-slate-900 text-sm">Yuk, jawab pertanyaan</h3>
+                    <p class="text-xs text-slate-500 mt-1">Jawab dan kumpulkan koin!</p>
+                </div>
+                <div class="bg-cardbg border border-blue-200 p-6 rounded-2xl shadow-sm border-t-4 border-accent">
+                    <div class="text-2xl font-extrabold text-sidebar mb-1">Asesmen</div>
+                    <h3 class="font-bold text-slate-900 text-sm">Last Section</h3>
+                    <p class="text-xs text-slate-500 mt-1">Kumpulkan koin sebanyak-banyaknya!</p>
+                </div>
+                <div class="bg-cardbg border border-blue-200 p-6 rounded-2xl shadow-sm border-t-4 border-highlight">
+                    <div id="home-score" class="text-2xl font-extrabold text-amber-500 mb-1">Total Koin🪙</div>
+                    <h3 class="font-bold text-slate-900 text-sm">Koin Terkumpul</h3>
+                    <p class="text-xs text-slate-500 mt-1">Yuk, totalkan poinmu!</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- HEAT IN ACTION (VIDEO) -->
+        <div id="content-video" class="tab-content hidden flex flex-col space-y-6 flex-1">
+            <header>
+                <h2 class="text-2xl font-bold tracking-wide text-slate-900 flex items-center gap-2">🎬 Heat In Action — Video Cerita Fenomena Kalor</h2>
+                <p class="text-sm text-slate-600 mt-1">Saksikan video animasi interaktif Heat In Action bersama Prof. Heat untuk memahami kalor dan perpindahan kalor di dunia nyata.</p>
+            </header>
+            <div class="bg-cardbg border border-blue-200 p-6 rounded-2xl shadow-sm max-w-3xl space-y-4">
+                <div class="w-full aspect-video bg-sidebar rounded-xl relative flex flex-col items-center justify-center text-white overflow-hidden shadow-inner">
+                    <video class="w-full h-full object-cover rounded-xl shadow-lg" controls>
+                        <source src="video.mp4" type="video/mp4">
+                        Browser kamu tidak mendukung pemutaran video.
+                    </video>
+                </div>
+                <div class="bg-blue-50 border border-blue-200 p-4 rounded-xl text-xs text-slate-700 space-y-1">
+                    <p class="font-bold text-sidebar"><i class="fa-solid fa-circle-info text-accent"></i> Panduan Belajar:</p>
+                    <p>Setelah menonton video, lanjutkan ke <b>Memory Lab</b> untuk mengunduh modul PDF materi dan mempelajari rumusnya!</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- MEMORY LAB -->
+        <div id="content-memory" class="tab-content hidden flex flex-col space-y-6 flex-1">
+            <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold tracking-wide text-slate-900 flex items-center gap-2">📖 Memory Lab — Rumus & Lampiran Materi PDF</h2>
+                    <p class="text-sm text-slate-600 mt-1">Pusat ringkasan rumus penting dan unduhan dokumen materi pembelajaran kalor.</p>
+                </div>
+                <div class="bg-accent/10 border border-accent/30 p-3.5 rounded-2xl flex items-center gap-3 shadow-sm">
+                    <div class="bg-accent text-white p-2.5 rounded-xl text-xl">
+                        <i class="fa-solid fa-file-pdf"></i>
+                    </div>
+                    <div>
+                        <span class="text-xs font-bold text-sidebar block">Modul Dokumen Resmi</span>
+                        <a href="materi_kalor.pdf" download="Materi_Kalor_CalorLab.pdf" target="_blank" class="text-xs font-extrabold text-accent hover:underline flex items-center gap-1 mt-0.5">
+                            Unduh & Buka Lampiran PDF <i class="fa-solid fa-download text-[10px]"></i>
+                        </a>
+                    </div>
+                </div>
+            </header>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pb-12">
+                <div class="bg-cardbg border border-blue-200 p-6 rounded-2xl shadow-sm space-y-3 border-t-4 border-accent">
+                    <h3 class="font-extrabold text-sidebar text-base flex items-center gap-2"><i class="fa-solid fa-scale-balanced text-accent"></i> 1. Satuan Kalor & Konversi</h3>
+                    <p class="text-xs text-slate-600">Satuan internasional untuk kalor adalah Joule, namun sering juga menggunakan kalori.</p>
+                    <div class="bg-blue-50 p-3 rounded-xl text-xs font-bold text-center text-accent space-y-1">
+                        <div>1 kalori = 4,2 Joule</div>
+                        <div>1 Joule = 0,24 kalori</div>
+                    </div>
+                </div>
+
+                <div class="bg-cardbg border border-blue-200 p-6 rounded-2xl shadow-sm space-y-3 border-t-4 border-[#FF7A3D]">
+                    <h3 class="font-extrabold text-slate-900 text-base flex items-center gap-2"><i class="fa-solid fa-temperature-arrow-up text-[#FF7A3D]"></i> 2. Kalor Perubahan Suhu Zat</h3>
+                    <p class="text-xs text-slate-600">Digunakan ketika zat mengalami perubahan suhu tanpa mengubah wujudnya.</p>
+                    <div class="bg-orange-50 p-3 rounded-xl text-xs font-bold text-center text-orange-800">
+                        Q = m × c × ΔT
+                    </div>
+                    <ul class="text-xs text-slate-600 space-y-1 list-disc list-inside">
+                        <li>Q = jumlah kalor</li>
+                        <li>m = massa benda</li>
+                        <li>c = kalor jenis zat</li>
+                        <li>ΔT = perubahan suhu</li>
+                    </ul>
+                </div>
+
+                <div class="bg-cardbg border border-blue-200 p-6 rounded-2xl shadow-sm space-y-3 border-t-4 border-[#3FA7D6]">
+                    <h3 class="font-extrabold text-slate-900 text-base flex items-center gap-2"><i class="fa-solid fa-snowflake text-[#3FA7D6]"></i> 3. Kalor Laten Perubahan Wujud</h3>
+                    <p class="text-xs text-slate-600">Digunakan ketika zat berubah wujud pada suhu tetap.</p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="bg-sky-50 p-2.5 rounded-xl text-center text-xs font-bold text-sky-800">
+                            <div>Lebur atau Beku</div>
+                            Q = m × L
+                        </div>
+                        <div class="bg-sky-50 p-2.5 rounded-xl text-center text-xs font-bold text-sky-800">
+                            <div>Uap atau Embun</div>
+                            Q = m × U
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-cardbg border border-blue-200 p-6 rounded-2xl shadow-sm space-y-3 border-t-4 border-purple-500">
+                    <h3 class="font-extrabold text-slate-900 text-base flex items-center gap-2"><i class="fa-solid fa-fire-flame-curved text-purple-600"></i> 4. Kapasitas Kalor & Kalor Jenis</h3>
+                    <p class="text-xs text-slate-600">Hubungan kapasitas kalor C, kalor jenis c, dan massa m.</p>
+                    <div class="bg-purple-50 p-3 rounded-xl text-xs font-bold text-center text-purple-900 space-y-1">
+                        <div>C = Q ÷ ΔT = m × c</div>
+                        <div>c = Q ÷ (m × ΔT)</div>
+                    </div>
+                </div>
+
+                <div class="bg-cardbg border border-blue-200 p-6 rounded-2xl shadow-sm space-y-3 border-t-4 border-highlight md:col-span-2">
+                    <h3 class="font-extrabold text-sidebar text-base flex items-center gap-2"><i class="fa-solid fa-handshake text-amber-500"></i> 5. Asas Black Keseimbangan Termal</h3>
+                    <p class="text-xs text-slate-600">Bunyi: <i>"Kalor yang diterima oleh suatu zat sama dengan kalor yang dilepas oleh suatu zat."</i></p>
+                    <div class="bg-amber-50 border border-amber-200 p-4 rounded-xl text-sm font-black text-center text-amber-800">
+                        Q lepas = Q terima
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= VIRTUAL LAB SECTIONS ================= -->
+        
+        <!-- 1. EKSPERIMEN KALOR -->
+        <div id="content-lab-kalor" class="tab-content hidden flex flex-col space-y-6 flex-1">
+            <header>
+                <h2 class="text-2xl font-bold tracking-wide text-slate-900 flex items-center gap-2"><span class="text-3xl">🧪</span> 1. Laboratorium Kalor: Membuktikan Q = m × c × ΔT</h2>
+                <p class="text-sm text-slate-600 mt-1">Simulasikan pemanasan zat secara real-time dan amati kenaikan suhu pada termometer.</p>
+            </header>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-sky-50 border border-sky-200 rounded-2xl p-6 flex flex-col items-center justify-center relative min-h-[380px] shadow-inner">
+                    <div class="absolute top-4 left-4 bg-white/90 border border-sky-200 px-3 py-2 rounded-xl text-xs space-y-1 shadow-sm">
+                        <p class="font-bold text-indigo-900" id="disp-temp">Suhu Zat (T): 25.0 °C</p>
+                        <p class="font-bold text-amber-600" id="disp-energy">Energi Diserap (Q): 0 Joule</p>
+                        <p class="font-bold text-slate-600" id="disp-time">Waktu (t): 0 detik</p>
+                    </div>
+                    <div class="relative flex flex-col items-center mt-12">
+                        <div class="absolute -top-16 z-20 flex flex-col items-center">
+                            <div class="w-3 h-28 bg-white border-2 border-slate-400 rounded-t-full relative overflow-hidden shadow">
+                                <div id="thermometer-liquid" class="w-full bg-red-500 absolute bottom-0 transition-all duration-300" style="height: 20%;"></div>
+                            </div>
+                            <div class="w-6 h-6 bg-red-600 rounded-full border-2 border-slate-400 -mt-1 shadow"></div>
+                        </div>
+                        <div class="w-48 h-36 bg-white/80 backdrop-blur rounded-b-3xl border-4 border-sky-300 relative z-10 flex items-end justify-center pb-3 shadow-md">
+                            <div id="liquid-color" class="w-[94%] bg-blue-400 rounded-b-2xl transition-all duration-300 opacity-80 flex items-center justify-center text-white text-xs font-bold shadow" style="height: 60%;">ZAT CAIR</div>
+                        </div>
+                        <div class="w-36 h-6 bg-slate-700 rounded-lg mt-2 relative flex justify-center shadow">
+                            <div id="heater-flame" class="text-orange-500 text-3xl absolute -top-7 opacity-0 transition-opacity duration-300 animate-pulse">🔥</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-cardbg border border-blue-200 p-6 rounded-2xl shadow-sm flex flex-col justify-between space-y-4">
+                    <div class="space-y-4">
+                        <h3 class="text-sm font-extrabold text-slate-900 border-b pb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-sliders text-indigo-600"></i> Pengaturan Variabel
+                        </h3>
+                        <div class="space-y-1 text-xs">
+                            <label class="font-semibold text-slate-700">Massa Zat (m): <span id="val-m" class="font-bold text-indigo-700">1.0 kg</span></label>
+                            <input id="input-m" type="range" min="0.5" max="3.0" step="0.5" value="1.0" class="w-full accent-indigo-600 cursor-pointer">
+                        </div>
+                        <div class="space-y-1 text-xs">
+                            <label class="font-semibold text-slate-700">Jenis Bahan (Kalor Jenis c):</label>
+                            <select id="select-material" onchange="updateMaterialStyle()" class="w-full bg-indigo-50/50 border border-indigo-200 rounded-xl px-3 py-2.5 font-medium text-slate-800 outline-none cursor-pointer">
+                                <option value="4200">Air (c = 4.200 J/kg°C)</option>
+                                <option value="2090">Minyak (c = 2.090 J/kg°C)</option>
+                                <option value="900">Aluminium (c = 900 J/kg°C)</option>
+                            </select>
+                        </div>
+                        <div class="space-y-1 text-xs">
+                            <label class="font-semibold text-slate-700">Daya Pemanas (P): <span id="val-power" class="font-bold text-indigo-700">500 Watt</span></label>
+                            <input id="input-power" type="range" min="200" max="1000" step="100" value="500" class="w-full accent-indigo-600 cursor-pointer">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 pt-2">
+                            <button id="btn-toggle" onclick="toggleHeater()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition cursor-pointer flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-power-off"></i> <span id="btn-text">Mulai Pemanasan</span>
+                            </button>
+                            <button onclick="resetLabKalor()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2.5 rounded-xl text-xs shadow transition cursor-pointer flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-rotate-right"></i> Reset
+                            </button>
+                        </div>
+                    </div>
+                    <button onclick="claimCoin(10, 'Lab Eksperimen Kalor')" class="w-full bg-highlight hover:bg-amber-400 text-sidebar font-bold py-3 rounded-xl transition cursor-pointer text-xs shadow">
+                        Klaim +10 Koin Lab Kalor 🪙
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. PERUBAHAN WUJUD -->
+        <div id="content-lab-wujud" class="tab-content hidden flex flex-col space-y-6 flex-1">
+            <header>
+                <h2 class="text-2xl font-bold tracking-wide text-slate-900 flex items-center gap-2"><span class="text-3xl">🧊</span> 2. Lab Perubahan Wujud & Kalor Laten</h2>
+                <p class="text-sm text-slate-600 mt-1">Amati perubahan wujud zat secara visual dari Es &rarr; Air &rarr; Uap saat dipanaskan.</p>
+            </header>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-gradient-to-b from-sky-100 to-sky-200 border border-sky-300 rounded-2xl p-6 flex flex-col items-center justify-center relative min-h-[380px] shadow-inner overflow-hidden">
+                    <div class="absolute top-4 left-4 bg-white/90 border border-sky-200 px-3 py-2 rounded-xl text-xs space-y-1 shadow-sm z-20">
+                        <p class="font-bold text-sky-900" id="w-temp">Suhu Zat (T): -10.0 °C</p>
+                        <p class="font-bold text-indigo-700" id="w-phase">Wujud: Es (Padat)</p>
+                        <p class="font-bold text-amber-600" id="w-energy">Kalor Diserap (Q): 0 J</p>
+                    </div>
+
+                    <div class="relative flex flex-col items-center mt-10">
+                        <div class="absolute -top-16 z-20 flex flex-col items-center">
+                            <div class="w-3 h-28 bg-white border-2 border-slate-400 rounded-t-full relative overflow-hidden shadow">
+                                <div id="w-therm-liquid" class="w-full bg-red-500 absolute bottom-0 transition-all duration-300" style="height: 10%;"></div>
+                            </div>
+                            <div class="w-6 h-6 bg-red-600 rounded-full border-2 border-slate-400 -mt-1 shadow"></div>
+                        </div>
+
+                        <div class="w-48 h-36 bg-white/75 backdrop-blur rounded-b-3xl border-4 border-sky-400 relative z-10 flex items-end justify-center pb-3 shadow-md overflow-hidden">
+                            <div id="w-substance-visual" class="w-[94%] bg-sky-200 rounded-b-2xl transition-all duration-500 flex flex-col items-center justify-center text-slate-800 font-bold text-xs shadow relative" style="height: 70%;">
+                                <div id="substance-icon" class="text-3xl">🧊🧊🧊</div>
+                                <span id="substance-label" class="mt-1 bg-white/80 px-2 py-0.5 rounded text-[10px]">PADAT (Es)</span>
+                            </div>
+                            <div id="steam-container" class="absolute top-2 flex space-x-2 opacity-0 transition-opacity duration-300">
+                                <span class="drop-steam text-lg">💨</span>
+                                <span class="drop-steam text-lg" style="animation-delay: 0.4s;">💨</span>
+                            </div>
+                        </div>
+
+                        <div class="w-36 h-6 bg-slate-700 rounded-lg mt-2 relative flex justify-center shadow">
+                            <div id="w-heater-flame" class="text-orange-500 text-3xl absolute -top-7 opacity-0 transition-opacity duration-300 animate-pulse">🔥</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-cardbg border border-blue-200 p-6 rounded-2xl shadow-sm flex flex-col justify-between space-y-4">
+                    <div class="space-y-4">
+                        <h3 class="text-sm font-extrabold text-slate-900 border-b pb-2">Kontrol Simulasi Wujud</h3>
+                        <div class="space-y-1 text-xs">
+                            <label class="font-semibold text-slate-700">Massa Es (m): <span id="w-val-m" class="font-bold text-sky-700">1.0 kg</span></label>
+                            <input id="w-input-m" type="range" min="0.5" max="2.0" step="0.5" value="1.0" class="w-full accent-sky-600 cursor-pointer">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 pt-2">
+                            <button id="w-btn-toggle" onclick="toggleWujudHeater()" class="bg-sky-600 hover:bg-sky-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition cursor-pointer flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-power-off"></i> <span id="w-btn-text">Mulai Pemanasan</span>
+                            </button>
+                            <button onclick="resetLabWujud()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2.5 rounded-xl text-xs shadow transition cursor-pointer flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-rotate-right"></i> Reset
+                            </button>
+                        </div>
+                    </div>
+                    <button onclick="claimCoin(10, 'Lab Perubahan Wujud')" class="w-full bg-highlight hover:bg-amber-400 text-sidebar font-bold py-3 rounded-xl transition cursor-pointer text-xs shadow">
+                        Klaim +10 Koin 🪙
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. GRAFIK PEMANASAN -->
+        <div id="content-lab-grafik" class="tab-content hidden flex flex-col space-y-6 flex-1">
+            <header>
+                <h2 class="text-2xl font-bold tracking-wide text-slate-900 flex items-center gap-2"><span class="text-3xl">📈</span> 3. Grafik Pemanasan Es Menjadi Uap</h2>
+                <p class="text-sm text-slate-600 mt-1">Amati kurva grafik pemanasan yang berwarna-warni dan klik tahapan di bawah ini untuk melihat perubahan wujud serta suhunya secara interaktif!</p>
+            </header>
+            
+            <div class="bg-cardbg border border-emerald-200 p-6 rounded-2xl shadow-sm space-y-6 max-w-4xl pb-12">
+                <div class="bg-gradient-to-r from-sky-50 via-emerald-50 to-orange-50 p-6 rounded-2xl border-2 border-emerald-300 shadow-inner flex flex-col items-center justify-center space-y-4 relative overflow-hidden">
+                    <span class="text-xs font-extrabold text-emerald-800 uppercase tracking-wider bg-white/80 px-3 py-1 rounded-full shadow-sm">Kurva Suhu vs Kalor Interaktif 🎨</span>
+                    
+                    <div class="w-full h-44 relative flex items-end justify-between px-6 border-b-2 border-l-2 border-slate-700 bg-white/60 backdrop-blur rounded-xl pt-4">
+                        <div id="graph-animated-marker" class="absolute bottom-4 left-6 transition-all duration-700 ease-in-out flex flex-col items-center z-20">
+                            <div id="marker-icon" class="text-3xl animate-bounce">🧊</div>
+                            <span id="marker-label" class="bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow">Es -10°C</span>
+                        </div>
+
+                        <div class="absolute inset-x-8 bottom-6 flex items-center justify-between pointer-events-none opacity-30">
+                            <div class="border-t-2 border-dashed border-slate-400 w-full"></div>
+                        </div>
+
+                        <div class="w-full flex justify-between text-[11px] font-extrabold text-slate-500 pb-1 z-10">
+                            <span class="text-sky-600">Tahap 1<br>(-10°C)</span>
+                            <span class="text-teal-600">Tahap 2<br>(0°C Lebur)</span>
+                            <span class="text-emerald-600">Tahap 3<br>(0°-100°C)</span>
+                            <span class="text-amber-600">Tahap 4<br>(100°C Uap)</span>
+                            <span class="text-red-500">Tahap 5<br>&gt;100°C</span>
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-600 text-center font-medium">Garis miring menunjukkan kenaikan suhu, sedangkan garis mendatar menunjukkan proses perubahan wujud zat (kalor laten).</p>
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    <button onclick="setGraphStage(1)" id="tab-g1" class="p-3 rounded-xl border border-emerald-300 bg-emerald-600 text-white font-bold text-xs transition cursor-pointer text-center shadow-sm">
+                        Tahap 1<br><span class="text-[10px] font-normal opacity-90">Es Memanas</span>
+                    </button>
+                    <button onclick="setGraphStage(2)" id="tab-g2" class="p-3 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-xs transition cursor-pointer text-center shadow-sm hover:bg-emerald-50">
+                        Tahap 2<br><span class="text-[10px] font-normal opacity-75">Es Mencair</span>
+                    </button>
+                    <button onclick="setGraphStage(3)" id="tab-g3" class="p-3 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-xs transition cursor-pointer text-center shadow-sm hover:bg-emerald-50">
+                        Tahap 3<br><span class="text-[10px] font-normal opacity-75">Air Memanas</span>
+                    </button>
+                    <button onclick="setGraphStage(4)" id="tab-g4" class="p-3 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-xs transition cursor-pointer text-center shadow-sm hover:bg-emerald-50">
+                        Tahap 4<br><span class="text-[10px] font-normal opacity-75">Air Menguap</span>
+                    </button>
+                    <button onclick="setGraphStage(5)" id="tab-g5" class="p-3 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-xs transition cursor-pointer text-center shadow-sm hover:bg-emerald-50">
+                        Tahap 5<br><span class="text-[10px] font-normal opacity-75">Uap Memanas</span>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center bg-emerald-50/50 p-6 rounded-2xl border border-emerald-100">
+                    <div class="space-y-3">
+                        <div class="inline-block bg-emerald-600 text-white text-[11px] font-bold px-3 py-1 rounded-full" id="g-badge">Tahap 1 dari 5</div>
+                        <h3 id="g-stage-title" class="text-lg font-extrabold text-emerald-900">1. Es Memanas (-10°C ke 0°C)</h3>
+                        <p id="g-desc" class="text-xs text-slate-700 leading-relaxed font-medium">
+                            Kalor diserap untuk menaikkan suhu es padat dari -10°C hingga mencapai titik leburnya di 0°C.
+                        </p>
+                        <div class="bg-white p-3 rounded-xl border border-emerald-200 text-xs font-bold text-emerald-800 shadow-sm" id="g-formula">
+                            Rumus: Q = m × c_es × ΔT
+                        </div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-emerald-200 shadow-sm flex flex-col items-center space-y-2">
+                        <span class="text-xs font-bold text-slate-600">Suhu Saat Ini</span>
+                        <div id="g-temp-box" class="text-2xl font-black text-emerald-600 bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-200 w-full text-center">-10 °C</div>
+                        <input id="slider-graph" type="range" min="1" max="5" value="1" class="w-full accent-emerald-600 cursor-pointer pt-2">
+                    </div>
+                </div>
+
+                <button onclick="claimCoin(10, 'Lab Grafik Pemanasan')" class="w-full bg-highlight hover:bg-amber-400 text-sidebar font-bold py-3 rounded-xl transition cursor-pointer text-xs shadow">
+                    Klaim +10 Koin Grafik 🪙
+                </button>
+            </div>
+        </div>
+
+        <!-- 4. PENGUAPAN -->
+        <div id="content-lab-penguapan" class="tab-content hidden flex flex-col space-y-6 flex-1">
+            <header>
+                <h2 class="text-2xl font-bold tracking-wide text-slate-900 flex items-center gap-2"><span class="text-3xl">💨</span> 4. Lab Interaktif: Faktor-Faktor Penguapan</h2>
+                <p class="text-sm text-slate-600 mt-1">Uji coba berbagai faktor fisik dan amati animasi kecepatan penguapan air secara langsung.</p>
+            </header>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-5xl pb-12">
+                <div class="bg-gradient-to-b from-teal-50 to-teal-100 border border-teal-200 rounded-2xl p-6 flex flex-col items-center justify-center relative min-h-[340px] shadow-inner overflow-hidden">
+                    <div class="absolute top-4 left-4 bg-white/90 border border-teal-200 px-3 py-2 rounded-xl text-xs space-y-1 shadow-sm z-20">
+                        <p class="font-bold text-teal-900" id="evap-status-text">Status: Cepat ⚡</p>
+                    </div>
+
+                    <div class="relative flex flex-col items-center mt-12">
+                        <div id="evap-lid" class="w-56 h-3 bg-slate-400 rounded-t-lg absolute -top-3 z-20 transition-all duration-300 hidden shadow"></div>
+                        <div id="evap-container-box" class="w-52 h-32 bg-white/80 backdrop-blur rounded-b-3xl border-4 border-teal-400 relative z-10 flex items-end justify-center pb-3 shadow-md overflow-hidden transition-all duration-300">
+                            <div class="w-[94%] bg-teal-400 rounded-b-2xl opacity-80 flex items-center justify-center text-white text-xs font-bold shadow transition-all duration-300" style="height: 65%;">
+                                AIR DALAM WADAH
+                            </div>
+                            <div id="evap-steam-anim" class="absolute inset-0 flex justify-around items-center opacity-0 transition-opacity duration-300 pointer-events-none">
+                                <span class="drop-steam text-xl">💧</span>
+                                <span class="drop-steam text-xl" style="animation-delay: 0.3s;">💨</span>
+                            </div>
+                        </div>
+                        <div class="flex gap-4 mt-3">
+                            <div id="heater-indicator" class="text-xs bg-orange-100 border border-orange-300 text-orange-700 font-bold px-3 py-1 rounded-lg transition-all">🔥 Pemanas Aktif</div>
+                            <div id="wind-indicator" class="text-xs bg-sky-100 border border-sky-300 text-sky-700 font-bold px-3 py-1 rounded-lg transition-all">🍃 Angin Tiup</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-cardbg border border-teal-200 p-6 rounded-2xl shadow-sm flex flex-col justify-between space-y-4">
+                    <div class="space-y-4">
+                        <h3 class="text-sm font-extrabold text-teal-900 border-b pb-2">Kontrol Variabel Penguapan</h3>
+                        <div class="space-y-3 text-xs font-semibold text-slate-700">
+                            <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:bg-teal-50 cursor-pointer transition">
+                                <input type="checkbox" id="chk-l" checked onchange="updateEvapLab()" class="w-4 h-4 accent-teal-600"> Memperluas permukaan wadah
+                            </label>
+                            <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:bg-teal-50 cursor-pointer transition">
+                                <input type="checkbox" id="chk-s" checked onchange="updateEvapLab()" class="w-4 h-4 accent-teal-600"> Meningkatkan suhu / pemanasan
+                            </label>
+                            <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:bg-teal-50 cursor-pointer transition">
+                                <input type="checkbox" id="chk-a" checked onchange="updateEvapLab()" class="w-4 h-4 accent-teal-600"> Meniupkan udara / angin
+                            </label>
+                            <label class="flex items-center gap-3 p-3 rounded-xl border border-red-100 hover:bg-red-50 cursor-pointer transition text-red-700">
+                                <input type="checkbox" id="chk-t" onchange="updateEvapLab()" class="w-4 h-4 accent-red-600"> Menutup wadah rapat-rapat
+                            </label>
+                        </div>
+                        <div id="evap-result-box" class="bg-teal-900 text-white p-4 rounded-xl shadow-inner text-xs space-y-1">
+                            <span class="text-teal-200 font-bold block">Kecepatan Penguapan:</span>
+                            <p id="res-evap" class="text-base font-extrabold text-highlight">SANGAT CEPAT ⚡</p>
+                        </div>
+                    </div>
+                    <button onclick="claimCoin(10, 'Lab Penguapan')" class="w-full bg-highlight hover:bg-amber-400 text-sidebar font-bold py-3 rounded-xl transition cursor-pointer text-xs shadow">
+                        Klaim +10 Koin Penguapan 🪙
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. ASAS BLACK -->
+        <div id="content-lab-black" class="tab-content hidden flex flex-col space-y-6 flex-1">
+            <header>
+                <h2 class="text-2xl font-bold tracking-wide text-slate-900 flex items-center gap-2"><span class="text-3xl">⚖️</span> 5. Lab Interaktif: Asas Black (Keseimbangan Termal)</h2>
+                <p class="text-sm text-slate-600 mt-1">Simulasikan pencampuran air dingin dan air panas untuk membuktikan hukum kekekalan energi kalor.</p>
+            </header>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-5xl pb-12">
+                <div class="bg-gradient-to-b from-amber-50 to-orange-100 border border-amber-200 rounded-2xl p-6 flex flex-col items-center justify-center relative min-h-[360px] shadow-inner">
+                    <div class="absolute top-4 left-4 bg-white/90 border border-amber-200 px-3 py-2 rounded-xl text-xs space-y-1 shadow-sm z-20">
+                        <p class="font-bold text-amber-900" id="black-status-label">Status: Siap Mencampur ⚖️</p>
+                    </div>
+
+                    <div class="flex items-end justify-center gap-6 mt-8">
+                        <div class="flex flex-col items-center">
+                            <div class="w-24 h-24 bg-white/80 rounded-b-2xl border-2 border-sky-400 flex items-end justify-center pb-2 shadow relative overflow-hidden">
+                                <div id="vis-water-cold" class="w-[90%] bg-sky-300 rounded-b-xl transition-all duration-300 flex items-center justify-center text-[10px] font-bold text-sky-900" style="height: 60%;">Dingin</div>
+                            </div>
+                            <span class="text-xs font-bold text-sky-800 mt-2" id="label-m1-vis">2 kg | 20 °C</span>
+                        </div>
+                        <div class="text-2xl font-bold text-slate-400 mb-6">+</div>
+                        <div class="flex flex-col items-center">
+                            <div class="w-24 h-24 bg-white/80 rounded-b-2xl border-2 border-orange-400 flex items-end justify-center pb-2 shadow relative overflow-hidden">
+                                <div id="vis-water-hot" class="w-[90%] bg-orange-400 rounded-b-2xl transition-all duration-300 flex items-center justify-center text-[10px] font-bold text-orange-900" style="height: 40%;">Panas</div>
+                            </div>
+                            <span class="text-xs font-bold text-orange-800 mt-2" id="label-m2-vis">1 kg | 80 °C</span>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 bg-white/90 border border-amber-300 px-6 py-3 rounded-2xl shadow-sm text-center">
+                        <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Suhu Akhir Campuran (Ta)</span>
+                        <div id="vis-ta-result" class="text-xl font-extrabold text-amber-600">40.00 °C</div>
+                    </div>
+                </div>
+
+                <div class="bg-cardbg border border-amber-200 p-6 rounded-2xl shadow-sm flex flex-col justify-between space-y-4">
+                    <div class="space-y-4">
+                        <h3 class="text-sm font-extrabold text-amber-900 border-b pb-2">Pengaturan Massa & Suhu Zat</h3>
+                        <div class="grid grid-cols-2 gap-3 text-xs">
+                            <div class="bg-sky-50 border border-sky-200 p-3.5 rounded-xl space-y-2">
+                                <span class="font-bold text-sky-900 block border-b border-sky-200 pb-1">💧 Air Dingin</span>
+                                <label class="text-[11px] font-semibold text-slate-600">Massa:</label>
+                                <input id="b-m1" type="number" min="0.5" max="5" step="0.5" value="2" oninput="calcBlack()" class="w-full bg-white border border-sky-300 rounded px-2 py-1 font-bold text-sky-900 outline-none">
+                                <label class="text-[11px] font-semibold text-slate-600">Suhu:</label>
+                                <input id="b-t1" type="number" min="0" max="50" value="20" oninput="calcBlack()" class="w-full bg-white border border-sky-300 rounded px-2 py-1 font-bold text-sky-900 outline-none">
+                            </div>
+                            <div class="bg-orange-50 border border-orange-200 p-3.5 rounded-xl space-y-2">
+                                <span class="font-bold text-orange-900 block border-b border-orange-200 pb-1">🔥 Air Panas</span>
+                                <label class="text-[11px] font-semibold text-slate-600">Massa:</label>
+                                <input id="b-m2" type="number" min="0.5" max="5" step="0.5" value="1" oninput="calcBlack()" class="w-full bg-white border border-orange-300 rounded px-2 py-1 font-bold text-orange-900 outline-none">
+                                <label class="text-[11px] font-semibold text-slate-600">Suhu:</label>
+                                <input id="b-t2" type="number" min="50" max="100" value="80" oninput="calcBlack()" class="w-full bg-white border border-orange-300 rounded px-2 py-1 font-bold text-orange-900 outline-none">
+                            </div>
+                        </div>
+                    </div>
+                    <button onclick="claimCoin(10, 'Lab Asas Black')" class="w-full bg-highlight hover:bg-amber-400 text-sidebar font-bold py-3 rounded-xl transition cursor-pointer text-xs shadow">
+                        Klaim +10 Koin Asas Black 🪙
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 6. PERPINDAHAN KALOR -->
+        <div id="content-lab-perpindahan" class="tab-content hidden flex flex-col space-y-6 flex-1">
+            <header>
+                <h2 class="text-2xl font-bold tracking-wide text-slate-900 flex items-center gap-2"><span class="text-3xl">🔥</span> 6. Lab Interaktif: Eksperimen Perpindahan Kalor</h2>
+                <p class="text-sm text-slate-600 mt-1">Uji coba dan amati pergerakan simulasi secara visual untuk Konduksi, Konveksi, dan Radiasi!</p>
+            </header>
+            
+            <div class="bg-cardbg border border-red-200 p-6 rounded-2xl shadow-sm space-y-6 max-w-5xl pb-12">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 relative z-20">
+                    <button onclick="switchHeatMode('konduksi')" id="btn-heat-konduksi" class="p-4 rounded-xl border-2 border-orange-500 bg-orange-100 font-bold text-orange-900 text-xs transition cursor-pointer text-center shadow-md scale-105">
+                        🥄 1. Konduksi<br><span class="text-[10px] font-normal opacity-75">Uji Coba Sendok (Logam, Kayu, Plastik)</span>
+                    </button>
+                    <button onclick="switchHeatMode('konveksi')" id="btn-heat-konveksi" class="p-4 rounded-xl border-2 border-slate-200 bg-white font-bold text-slate-700 text-xs transition cursor-pointer text-center shadow-sm hover:bg-sky-50">
+                        🌊 2. Konveksi<br><span class="text-[10px] font-normal opacity-75">Simulasi Aliran Pemanasan Air</span>
+                    </button>
+                    <button onclick="switchHeatMode('radiasi')" id="btn-heat-radiasi" class="p-4 rounded-xl border-2 border-slate-200 bg-white font-bold text-slate-700 text-xs transition cursor-pointer text-center shadow-sm hover:bg-purple-50">
+                        ☀️ 3. Radiasi<br><span class="text-[10px] font-normal opacity-75">Uji Lampu Cangkir Terang vs Gelap</span>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center bg-slate-50 p-6 rounded-2xl border border-slate-200">
+                    <div id="heat-animation-box" class="bg-gradient-to-br from-orange-50 to-red-100 border border-orange-300 rounded-2xl h-80 flex flex-col items-center justify-center relative overflow-hidden shadow-inner">
+                        <div class="flex flex-col items-center justify-center relative w-full h-full p-4">
+                            <div class="w-48 h-56 bg-white/90 border-2 border-slate-400 rounded-b-3xl relative flex items-end justify-center pb-3 shadow-inner">
+                                <div class="absolute bottom-2 w-[92%] h-7 bg-sky-500/80 rounded-xl flex items-center justify-center text-xs font-black text-white shadow z-10">Air Panas ♨️</div>
+                                <div class="absolute inset-x-4 top-2 bottom-10 flex justify-around items-end z-10">
+                                    <div class="w-4 h-44 bg-slate-400 rounded-t-full shadow transform -rotate-6 flex flex-col items-center pt-2">
+                                        <span id="stat-logam" class="text-[10px] bg-red-600 text-white font-black px-1.5 py-0.5 rounded shadow">26°C</span>
+                                        <span class="text-[9px] text-black font-black mt-1">Logam</span>
+                                    </div>
+                                    <div class="w-5 h-44 bg-amber-600 rounded-t-full shadow flex flex-col items-center pt-2">
+                                        <span id="stat-kayu" class="text-[10px] bg-amber-700 text-white font-black px-1.5 py-0.5 rounded shadow">26°C</span>
+                                        <span class="text-[9px] text-black font-black mt-1">Kayu</span>
+                                    </div>
+                                    <div class="w-4 h-44 bg-slate-200 rounded-t-full shadow transform rotate-6 flex flex-col items-center pt-2">
+                                        <span id="stat-plastik" class="text-[10px] bg-blue-600 text-white font-black px-1.5 py-0.5 rounded shadow">26°C</span>
+                                        <span class="text-[9px] text-black font-black mt-1">Plastik</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div class="inline-block bg-orange-600 text-white text-[11px] font-bold px-3 py-1 rounded-full" id="heat-badge">Mode: Konduksi</div>
+                        <h3 id="heat-title" class="text-lg font-extrabold text-slate-900">Perpindahan Kalor Secara Konduksi (Uji Sendok)</h3>
+                        <p id="heat-desc" class="text-xs text-slate-700 leading-relaxed font-medium">
+                            Mencelupkan sendok logam, kayu, dan plastik ke dalam air panas. Logam menghantarkan panas paling cepat ke tangan.
+                        </p>
+                        <div class="bg-white p-3 rounded-xl border border-orange-200 text-xs font-bold text-orange-900 shadow-sm" id="heat-example">
+                            Hasil Uji Suhu Ujung Sendok: Logam (Panas Sekali 🔥), Kayu & Plastik (Hangat/Normal 🛡️).
+                        </div>
+                        <div id="extra-control-container" class="pt-2 relative z-20">
+                            <button onclick="runKonduksiTest()" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-xl text-xs shadow transition cursor-pointer">Mulai Uji Coba Hantaran Sendok ⏱️</button>
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="claimCoin(10, 'Lab Perpindahan Kalor')" class="w-full bg-highlight hover:bg-amber-400 text-sidebar font-bold py-3 rounded-xl transition cursor-pointer text-xs shadow relative z-20">
+                    Klaim +10 Koin Perpindahan Kalor 🪙
+                </button>
+            </div>
+        </div>
+
+        <!-- 7. KEARIFAN LOKAL NUSANTARA & KALOR -->
+        <div id="content-lab-lokal" class="tab-content hidden flex flex-col space-y-6 flex-1">
+            <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gradient-to-r from-sidebar to-[#2543b5] text-white p-6 rounded-2xl shadow-md">
+                <div>
+                    <div class="inline-block bg-white/20 text-highlight text-[10px] font-bold px-2.5 py-0.5 rounded-full mb-1">Lab Virtual Kearifan Lokal Sumatera Selatan</div>
+                    <h2 id="lokal-header-title" class="text-xl font-extrabold tracking-wide">Panggang Kemplang, Rasakan Kalornya</h2>
+                    <p id="lokal-header-desc" class="text-xs text-blue-100 mt-0.5">Eksperimen pembakaran kemplang tunu dan pengeringan ikan salai.</p>
+                </div>
+                <!-- Tombol Tab Navigasi -->
+                <div class="flex items-center gap-1 bg-black/20 p-2 rounded-xl backdrop-blur text-[11px] font-bold">
+                    <button type="button" onclick="switchLokalMode('kemplang')" id="tab-step-kemplang" class="px-3 py-1.5 rounded-lg bg-white text-sidebar shadow transition cursor-pointer">1. Kemplang Tunu</button>
+                    <button type="button" onclick="switchLokalMode('salai')" id="tab-step-salai" class="px-3 py-1.5 rounded-lg text-blue-100 hover:bg-white/10 transition cursor-pointer">2. Pengasapan Ikan</button>
+                </div>
+            </header>
+
+            <!-- TAMPILAN UTAMA WORKSPACE LAB -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-12">
+                
+                <!-- KOLOM KIRI: PENGATURAN PERCOBAAN -->
+                <div class="lg:col-span-4 bg-cardbg border border-blue-200 p-5 rounded-2xl shadow-sm space-y-4 flex flex-col justify-between">
+                    <div class="space-y-4">
+                        <h3 class="text-xs font-black uppercase tracking-wider text-sidebar border-b pb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-sliders text-accent"></i> Pengaturan Percobaan
+                        </h3>
+
+                        <!-- PENGATURAN API TUNGKU -->
+                        <div class="bg-orange-50 border border-orange-200 p-3 rounded-xl space-y-2">
+                            <label class="font-bold text-orange-900 text-xs flex justify-between items-center">
+                                <span>🔥 Intensitas Api Tungku:</span>
+                                <span id="label-api-val" class="text-red-600 font-black">Sedang</span>
+                            </label>
+                            <input id="lokal-slider-api" type="range" min="1" max="3" step="1" value="2" oninput="updateTungkuFlame()" class="w-full accent-orange-600 cursor-pointer">
+                            <div class="flex justify-between text-[10px] text-slate-500 font-semibold">
+                                <span>Kecil</span>
+                                <span>Sedang</span>
+                                <span>Besar</span>
+                            </div>
+                        </div>
+
+                        <div id="lokal-controls-container" class="space-y-3 text-xs">
+                            <div class="space-y-1">
+                                <label class="font-semibold text-slate-700">Jarak kemplang dari bara:</label>
+                                <select id="lokal-opt-1" class="w-full bg-blue-50/50 border border-blue-200 rounded-xl px-3 py-2 font-medium text-slate-800 outline-none cursor-pointer">
+                                    <option value="sedang">Sedang (± 15 cm)</option>
+                                    <option value="dekat">Dekat (± 5 cm)</option>
+                                </select>
+                            </div>
+                            <div class="space-y-1">
+                                <label class="font-semibold text-slate-700">Waktu pemanggangan:</label>
+                                <select id="lokal-opt-2" class="w-full bg-blue-50/50 border border-blue-200 rounded-xl px-3 py-2 font-medium text-slate-800 outline-none cursor-pointer">
+                                    <option value="20">20 detik</option>
+                                    <option value="40">40 detik</option>
+                                </select>
+                            </div>
+                            <div class="space-y-1">
+                                <label class="font-semibold text-slate-700">Membalik kemplang:</label>
+                                <select id="lokal-opt-3" class="w-full bg-blue-50/50 border border-blue-200 rounded-xl px-3 py-2 font-medium text-slate-800 outline-none cursor-pointer">
+                                    <option value="ya">Ya (Dibalik agar merata)</option>
+                                    <option value="tidak">Tidak (Dibiarkan 1 sisi)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-3 pt-4">
+                        <button type="button" onclick="runLokalExperimentSimulation()" class="w-full bg-sidebar hover:bg-accenthover text-white font-extrabold py-3.5 rounded-xl text-xs shadow-md transition cursor-pointer flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-play text-highlight"></i> <span id="lokal-btn-run-text">Mulai Pemanggangan</span>
+                        </button>
+                        <div class="bg-amber-50 border border-amber-200 p-3 rounded-xl text-[11px] text-amber-900 space-y-0.5">
+                            <p class="font-bold flex items-center gap-1"><i class="fa-solid fa-lightbulb text-amber-500"></i> Tahukah Kamu?</p>
+                            <p id="lokal-fact-text" class="text-[10px] text-slate-600">Kemplang tunu memanfaatkan radiasi panas bara langsung untuk memuaskan udara di dalam adonan.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KOLOM TENGAH: AREA ANIMASI -->
+                <div class="lg:col-span-5 bg-gradient-to-br from-slate-900 to-sidebar rounded-2xl p-6 text-white flex flex-col justify-between relative overflow-hidden shadow-inner min-h-[400px]">
+                    <div class="absolute top-4 right-4 bg-white/10 backdrop-blur border border-white/20 px-3 py-1.5 rounded-xl text-right z-10 space-y-0.5">
+                        <span class="text-[9px] text-blue-200 block font-bold uppercase" id="lokal-stat-title">Suhu Objek</span>
+                        <span id="lokal-stat-val" class="text-lg font-black text-highlight">28 °C</span>
+                        <div id="container-kadar-air" class="pt-1 border-t border-white/10">
+                            <span class="text-[9px] text-sky-300 block font-bold">Kadar Air: <span id="lokal-kadar-air-val">80%</span></span>
+                        </div>
+                    </div>
+
+                    <div id="lokal-visual-stage" class="flex-1 flex flex-col items-center justify-center relative my-auto space-y-3">
+                        <div class="relative w-48 h-48 flex items-center justify-center">
+                            <div class="absolute bottom-0 w-44 h-16 bg-stone-700 rounded-b-full border-t-4 border-orange-600 flex flex-col justify-center items-center">
+                                <span id="tungku-flame-icon" class="text-orange-500 text-xl font-black tracking-widest animate-pulse">🔥🔥🔥</span>
+                            </div>
+                            <div id="sim-object" class="w-20 h-20 bg-amber-100 border-2 border-amber-300 rounded-full shadow-2xl flex items-center justify-center text-xs font-bold text-slate-800 transition-all duration-1000 transform scale-95 translate-y-2">Mentah</div>
+                        </div>
+                        <div class="bg-black/60 backdrop-blur border border-white/10 px-4 py-2 rounded-xl text-center space-y-1 w-full">
+                            <span class="text-xs font-extrabold text-highlight block" id="sim-status-label">Status: Belum Dipanggang (Menunggu...)</span>
+                            <span class="text-[10px] text-blue-200">Tekan tombol mulai untuk melihat proses kalor & pengeringan</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KOLOM KANAN: HASIL PENGAMATAN -->
+                <div class="lg:col-span-3 space-y-4 flex flex-col justify-between">
+                    <div class="bg-cardbg border border-blue-200 p-4 rounded-2xl shadow-sm space-y-2">
+                        <h4 class="font-extrabold text-sidebar text-xs flex items-center gap-1.5 border-b pb-1.5">
+                            <i class="fa-solid fa-chart-bar text-accent"></i> Hasil Pengamatan Lab
+                        </h4>
+                        <div class="text-[11px] space-y-1.5 text-slate-700 divide-y divide-slate-100">
+                            <div class="flex justify-between pt-1"><span>Warna</span> <strong id="res-warna" class="text-slate-500">Putih Pucat</strong></div>
+                            <div class="flex justify-between pt-1"><span>Tekstur</span> <strong id="res-tekstur" class="text-slate-500">Pipih / Mentah</strong></div>
+                            <div class="flex justify-between pt-1"><span>Suhu</span> <strong id="res-suhu" class="text-sidebar">28 °C</strong></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-cardbg border border-blue-200 p-3 rounded-2xl shadow-sm space-y-1.5">
+                        <span class="text-[10px] font-extrabold text-sidebar uppercase tracking-wider block">Dokumentasi Lapangan</span>
+                        <div id="lokal-real-image-box" class="w-full h-28 bg-gradient-to-br from-amber-100 to-orange-200 rounded-xl overflow-hidden shadow border flex flex-col items-center justify-center p-2 text-center">
+                            <img src="kemplang.jpg" alt="Kemplang Tunu" class="w-full h-full object-cover">
+                        </div>
+                        <p id="lokal-image-caption" class="text-[10px] text-slate-500 text-center font-medium">Dokumentasi Asli: Pemanggangan Kemplang Tunu</p>
+                    </div>
+                </div>
+            </div>
+
+            <button type="button" onclick="claimCoin(10, 'Lab Kearifan Lokal Kuliner')" class="w-full bg-highlight hover:bg-amber-400 text-sidebar font-bold py-3 rounded-xl transition cursor-pointer text-xs shadow">
+                Klaim +10 Koin Kearifan Lokal 🪙
+            </button>
+        </div>
+
+        <!-- ================= PHYSICS CHALLENGE (LAYOUT SAMPINGAN / SIDE-BY-SIDE) ================= -->
+        <div id="content-challenge" class="tab-content hidden flex flex-col space-y-6 flex-1">
+            <header>
+                <h2 class="text-2xl font-bold tracking-wide text-slate-900">🧩 Physics Challenge — Misi Heat Explorer</h2>
+                <p class="text-sm text-slate-600 mt-1">Selesaikan 5 tantangan fisika interaktif berikut. Layout soal dan gambar disusun berdampingan agar gambar lebih besar, jelas, dan sangat mudah diamati!</p>
+            </header>
+
+            <div class="space-y-6 max-w-4xl pb-16">
+                
+                <!-- CHALLENGE 1 -->
+                <div class="bg-cardbg border-2 border-accent/40 p-6 rounded-2xl shadow-md space-y-4">
+                    <div class="flex justify-between items-center">
+                        <span class="bg-accent text-white text-xs font-bold px-3 py-1 rounded-full">🔥 CHALLENGE 1 — Arah Perpindahan Kalor</span>
+                        <span class="text-xs font-bold text-accent">+10 Koin</span>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+                        <div class="md:col-span-5 w-full h-44 bg-slate-50 rounded-xl overflow-hidden border shadow-inner flex items-center justify-center p-2">
+                            <img src="https://www.pelajaran.co.id/wp-content/uploads/2016/04/perpindahan-kalor.jpg" alt="Arah Kalor" class="w-full h-full object-contain">
+                        </div>
+                        <div class="md:col-span-7 space-y-3">
+                            <p class="text-xs font-semibold text-slate-800">
+                                1. Kalor secara alami selalu berpindah dari satu benda ke benda lain dengan ketentuan:
+                            </p>
+                            <div class="space-y-2 text-xs">
+                                <label class="flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+                                    <input type="radio" name="ch1" value="A"> A. Dari suhu rendah ke suhu tinggi
+                                </label>
+                                <label class="flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+                                    <input type="radio" name="ch1" value="B"> B. Dari suhu tinggi ke suhu rendah
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CHALLENGE 2 -->
+                <div class="bg-cardbg border-2 border-accent/40 p-6 rounded-2xl shadow-md space-y-4">
+                    <div class="flex justify-between items-center">
+                        <span class="bg-accent text-white text-xs font-bold px-3 py-1 rounded-full">🔥 CHALLENGE 2 — Konduktor Terbaik</span>
+                        <span class="text-xs font-bold text-accent">+10 Koin</span>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+                        <div class="md:col-span-5 w-full h-44 bg-slate-50 rounded-xl overflow-hidden border shadow-inner flex items-center justify-center p-2">
+                            <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhiTff6lEbUpuCweX-EvnNgyux82W-gwOjn0LFYndLxhegaR9pLQtT38uytYWtbfNxrO21yeHBF83vozQUmAVnkSE7BTHDgnyatksD4KL3MRlIzVoin0En80cPspAq5mbPov9E3uRHt50Ic/s16000/gambar+konduktor.jpg" alt="Ragam Konduktor" class="w-full h-full object-contain">
+                        </div>
+                        <div class="md:col-span-7 space-y-3">
+                            <p class="text-xs font-semibold text-slate-800">
+                                2. Perhatikan ragam material logam di bawah ini. Manakah bahan yang merupakan penghantar kalor (konduktor) paling baik dan cepat?
+                            </p>
+                            <div class="space-y-2 text-xs">
+                                <label class="flex items-center gap-3 p-2 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+                                    <input type="radio" name="ch2" value="A"> A. Kayu kering
+                                </label>
+                                <label class="flex items-center gap-3 p-2 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+                                    <input type="radio" name="ch2" value="B"> B. Besi / Tembaga / Logam
+                                </label>
+                                <label class="flex items-center gap-3 p-2 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+                                    <input type="radio" name="ch2" value="C"> C. Plastik mika
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CHALLENGE 3 -->
+                <div class="bg-cardbg border-2 border-accent/40 p-6 rounded-2xl shadow-md space-y-4">
+                    <div class="flex justify-between items-center">
+                        <span class="bg-accent text-white text-xs font-bold px-3 py-1 rounded-full">🔥 CHALLENGE 3 — Konveksi Air</span>
+                        <span class="text-xs font-bold text-accent">+10 Koin</span>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+                        <div class="md:col-span-5 w-full h-44 bg-slate-50 rounded-xl overflow-hidden border shadow-inner flex items-center justify-center p-2">
+                            <img src="https://media.istockphoto.com/id/973550724/id/vektor/metode-perpindahan-panas-pada-contoh-air-mendidih-di-ketel-di-atas-kompor-gas-konveksi.jpg?s=170667a&w=0&k=20&c=uKsoUl1a1hxov2lOfNT5NvYua5edip6G_CAi9aZMoiU=" alt="Konveksi Ketel Air" class="w-full h-full object-contain">
+                        </div>
+                        <div class="md:col-span-7 space-y-3">
+                            <p class="text-xs font-semibold text-slate-800">
+                                3. Perhatikan ilustrasi pemanasan air dalam ketel di bawah ini. Sirkulasi naik-turun partikel air saat dipanaskan disebabkan oleh perpindahan kalor secara...
+                            </p>
+                            <div class="space-y-2 text-xs">
+                                <label class="flex items-center gap-3 p-2 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+                                    <input type="radio" name="ch3" value="A"> A. Konduksi
+                                </label>
+                                <label class="flex items-center gap-3 p-2 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+                                    <input type="radio" name="ch3" value="B"> B. Konveksi
+                                </label>
+                                <label class="flex items-center gap-3 p-2 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+                                    <input type="radio" name="ch3" value="C"> C. Radiasi
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CHALLENGE 4 -->
+                <div class="bg-cardbg border-2 border-accent/40 p-6 rounded-2xl shadow-md space-y-4">
+                    <div class="flex justify-between items-center">
+                        <span class="bg-accent text-white text-xs font-bold px-3 py-1 rounded-full">🔥 CHALLENGE 4 — Satuan Kalor</span>
+                        <span class="text-xs font-bold text-accent">+10 Koin</span>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+                        <div class="md:col-span-5 w-full h-44 bg-sidebar rounded-xl overflow-hidden border shadow-inner flex flex-col items-center justify-center text-white p-4 text-center">
+                            <span class="text-4xl mb-1">📐⚡</span>
+                            <span class="text-xs font-bold text-highlight">Standar Satuan Internasional Energi Panas</span>
+                        </div>
+                        <div class="md:col-span-7 space-y-3">
+                            <p class="text-xs font-semibold text-slate-800">
+                                4. Dalam sistem satuan internasional (SI), besaran energi kalor dinyatakan dalam satuan...
+                            </p>
+                            <div class="space-y-2 text-xs">
+                                <label class="flex items-center gap-3 p-2 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+                                    <input type="radio" name="ch4" value="A"> A. Joule (J)
+                                </label>
+                                <label class="flex items-center gap-3 p-2 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+                                    <input type="radio" name="ch4" value="B"> B. Derajat Celsius (°C)
+                                </label>
+                                <label class="flex items-center gap-3 p-2 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+                                    <input type="radio" name="ch4" value="C"> C. Watt (W)
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CHALLENGE 5 -->
+                <div class="bg-cardbg border-2 border-accent/40 p-6 rounded-2xl shadow-md space-y-4">
+                    <div class="flex justify-between items-center">
+                        <span class="bg-accent text-white text-xs font-bold px-3 py-1 rounded-full">🔥 CHALLENGE 5 — Perubahan Wujud Menguap</span>
+                        <span class="text-xs font-bold text-accent">+10 Koin</span>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+                        <div class="md:col-span-5 w-full h-44 bg-slate-50 rounded-xl overflow-hidden border shadow-inner flex items-center justify-center p-2">
+                            <img src="https://idschool.net/wp-content/uploads/2023/03/Perubahan-Wujud-Benda-Padat-Cair-dan-Gas.webp" alt="Diagram Perubahan Wujud" class="w-full h-full object-contain">
+                        </div>
+                        <div class="md:col-span-7 space-y-3">
+                            <p class="text-xs font-semibold text-slate-800">
+                                5. Berdasarkan diagram siklus perubahan wujud di bawah ini, proses perubahan zat cair menjadi gas (menguap) memerlukan energi kalor yang dinamakan...
+                            </p>
+                            <div class="space-y-2 text-xs">
+                                <label class="flex items-center gap-3 p-2 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+                                    <input type="radio" name="ch5" value="A"> A. Kalor beku
+                                </label>
+                                <label class="flex items-center gap-3 p-2 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+                                    <input type="radio" name="ch5" value="B"> B. Kalor uap (laten penguapan)
+                                </label>
+                                <label class="flex items-center gap-3 p-2 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+                                    <input type="radio" name="ch5" value="C"> C. Kalor lebur
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-2">
+                    <button onclick="submitAllChallenge()" class="w-full bg-accent hover:bg-accenthover text-white font-extrabold py-3.5 rounded-xl shadow-lg transition cursor-pointer text-sm">
+                        Kirim Semua Jawaban Challenge 🚀
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= ASESMEN AKHIR (5 SOAL) ================= -->
+        <div id="content-asesmen" class="tab-content hidden flex flex-col space-y-6 flex-1">
+            <header>
+                <h2 class="text-2xl font-bold tracking-wide text-slate-900">📝 Asesmen Akhir Kalor & Perpindahannya</h2>
+                <p class="text-sm text-slate-600 mt-1">Jawab seluruh 5 pertanyaan pilihan ganda di bawah ini, lalu kumpulkan untuk melihat hasil skor lengkap!</p>
+            </header>
+
+            <div class="space-y-6 max-w-2xl pb-16">
+                
+                <!-- SOAL 1 -->
+                <div class="bg-cardbg border-2 border-blue-100 p-6 rounded-2xl shadow-md space-y-3">
+                    <span class="bg-blue-50 text-accent text-xs font-bold px-3 py-1 rounded-full">Soal 1 dari 5</span>
+                    <p class="text-sm font-semibold text-slate-800">
+                        1. Ibu membuat secangkir kopi panas untuk ayah. Ayah memasukkan sendok stainless steel ke dalam cangkir tersebut. Beberapa menit kemudian, ketika ayah memegang ujung gagang sendok, gagangnya terasa ikut panas. Peristiwa ini menunjukkan terjadinya perpindahan kalor secara...
+                    </p>
+                    <div class="space-y-2 text-xs">
+                        <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+                            <input type="radio" name="as1" value="A"> A. Konduksi (hantaran tanpa memindahkan partikel zat)
+                        </label>
+                        <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+                            <input type="radio" name="as1" value="B"> B. Konveksi (aliran zat perantara)
+                        </label>
+                        <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+                            <input type="radio" name="as1" value="C"> C. Radiasi (pancaran gelombang elektromagnetik)
+                        </label>
+                    </div>
+                </div>
+
+                <!-- SOAL 2 -->
+                <div class="bg-cardbg border-2 border-blue-100 p-6 rounded-2xl shadow-md space-y-3">
+                    <span class="bg-blue-50 text-accent text-xs font-bold px-3 py-1 rounded-full">Soal 2 dari 5</span>
+                    <p class="text-sm font-semibold text-slate-800">
+                        2. Perhatikan rumus kalor: $Q = m \times c \times \Delta T$. Apa arti dari simbol huruf $c$ pada rumus tersebut?
+                    </p>
+                    <div class="space-y-2 text-xs">
+                        <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+                            <input type="radio" name="as2" value="A"> A. Massa benda
+                        </label>
+                        <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+                            <input type="radio" name="as2" value="B"> B. Kalor jenis zat
+                        </label>
+                        <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+                            <input type="radio" name="as2" value="C"> C. Perubahan suhu
+                        </label>
+                    </div>
+                </div>
+
+                <!-- SOAL 3 -->
+                <div class="bg-cardbg border-2 border-blue-100 p-6 rounded-2xl shadow-md space-y-3">
+                    <span class="bg-blue-50 text-accent text-xs font-bold px-3 py-1 rounded-full">Soal 3 dari 5</span>
+                    <p class="text-sm font-semibold text-slate-800">
+                        3. Saat es batu dipanaskan hingga mencair seluruhnya menjadi air pada suhu 0°C, suhu air tersebut tidak langsung naik. Kalor yang diserap pada saat wujud es berubah menjadi air dinamakan...
+                    </p>
+                    <div class="space-y-2 text-xs">
+                        <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+                            <input type="radio" name="as3" value="A"> A. Kalor jenis
+                        </label>
+                        <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+                            <input type="radio" name="as3" value="B"> B. Kalor laten (kalor lebur)
+                        </label>
+                        <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+                            <input type="radio" name="as3" value="C"> C. Kapasitas kalor
+                        </label>
+                    </div>
+                </div>
+
+                <!-- SOAL 4 -->
+                <div class="bg-cardbg border-2 border-blue-100 p-6 rounded-2xl shadow-md space-y-3">
+                    <span class="bg-blue-50 text-accent text-xs font-bold px-3 py-1 rounded-full">Soal 4 dari 5</span>
+                    <p class="text-sm font-semibold text-slate-800">
+                        4. Manakah di bawah ini faktor yang dapat mempercepat proses penguapan (evaporasi) suatu zat cair?
+                    </p>
+                    <div class="space-y-2 text-xs">
+                        <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+                            <input type="radio" name="as4" value="A"> A. Menutup wadah penyimpanan rapat-rapat
+                        </label>
+                        <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+                            <input type="radio" name="as4" value="B"> B. Memperkecil luas permukaan wadah
+                        </label>
+                        <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+                            <input type="radio" name="as4" value="C"> C. Memanaskan suhu zat dan meniupkan angin di atas permukaannya
+                        </label>
+                    </div>
+                </div>
+
+                <!-- SOAL 5 -->
+                <div class="bg-cardbg border-2 border-blue-100 p-6 rounded-2xl shadow-md space-y-3">
+                    <span class="bg-blue-50 text-accent text-xs font-bold px-3 py-1 rounded-full">Soal 5 dari 5</span>
+                    <p class="text-sm font-semibold text-slate-800">
+                        5. Bunyi Asas Black menyatakan bahwa pada pencampuran dua zat, berlaku ketentuan...
+                    </p>
+                    <div class="space-y-2 text-xs">
+                        <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+                            <input type="radio" name="as5" value="A"> A. Kalor yang dilepas sama dengan kalor yang diterima ($Q_{lepas} = Q_{terima}$)
+                        </label>
+                        <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+                            <input type="radio" name="as5" value="B"> B. Suhu akhir campuran selalu sama dengan titik didih air
+                        </label>
+                        <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+                            <input type="radio" name="as5" value="C"> C. Kalor jenis kedua zat wajib bernilai sama persis
+                        </label>
+                    </div>
+                </div>
+
+                <div class="pt-4">
+                    <button onclick="submitAllAsesmen()" class="w-full bg-accent hover:bg-accenthover text-white font-extrabold py-4 rounded-2xl shadow-xl transition cursor-pointer text-base flex items-center justify-center gap-3">
+                        <i class="fa-solid fa-paper-plane text-highlight"></i> Kirim Semua Jawaban Asesmen (+125 Koin Jika Benar)
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- SCRIPT UTAMA & LAB VIRTUAL -->
+    <script>
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            
+            const targetEl = document.getElementById('content-' + tabName);
+            if(targetEl) targetEl.classList.remove('hidden');
+
+            const allTabs = ['beranda', 'video', 'memory', 'lab-kalor', 'lab-wujud', 'lab-grafik', 'lab-penguapan', 'lab-black', 'lab-perpindahan', 'lab-lokal', 'challenge', 'asesmen'];
+            allTabs.forEach(t => {
+                const btn = document.getElementById('btn-' + t);
+                if(btn) {
+                    if(t === tabName) {
+                        btn.classList.add('bg-white', 'text-sidebar', 'font-bold', 'shadow');
+                        btn.classList.remove('text-blue-100', 'hover:bg-white/10');
+                    } else {
+                        btn.classList.remove('bg-white', 'text-sidebar', 'font-bold', 'shadow');
+                        btn.classList.add('text-blue-100', 'hover:bg-white/10');
+                    }
+                }
+            });
+        }
+
+        let totalCoins = 0;
+        const scoreDisplay = document.getElementById('score-display');
+        const homeScore = document.getElementById('home-score');
+        const explorerLevelBadge = document.getElementById('explorer-level-badge');
+
+        function updateExplorerLevel() {
+            if(totalCoins >= 100) explorerLevelBadge.innerText = "Level: Heat Scientist 🏆";
+            else if(totalCoins >= 70) explorerLevelBadge.innerText = "Level: Heat Master 🔥";
+            else if(totalCoins >= 40) explorerLevelBadge.innerText = "Level: Heat Adventurer 🌊";
+            else if(totalCoins >= 20) explorerLevelBadge.innerText = "Level: Heat Explorer ☕";
+            else explorerLevelBadge.innerText = "Level: Heat Rookie 🐣";
+        }
+
+        function addCoins(amount, source) {
+            totalCoins += amount;
+            scoreDisplay.innerText = totalCoins + " 🪙";
+            if(homeScore) homeScore.innerText = totalCoins + " 🪙";
+            updateExplorerLevel();
+            alert(`🎉 Berhasil! Kamu mendapat +${amount} koin dari ${source}. Total koin: ${totalCoins} 🪙`);
+        }
+
+        function claimCoin(amount, source) { addCoins(amount, source); }
+
+        function playProfHeatGreeting() {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance("Halo Penjelajah! Selamat datang di CalorLab.");
+                utterance.lang = 'id-ID';
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        function showJuaraModal(text) {
+            document.getElementById('modal-score-text').innerText = text;
+            document.getElementById('modal-juara').classList.remove('hidden');
+        }
+        function closeJuaraModal() { document.getElementById('modal-juara').classList.add('hidden'); }
+
+        // --- 1. Lab Eksperimen Kalor ---
+        let isHeating = false;
+        let labTime = 0;
+        let labTemp = 25.0;
+        const initialTemp = 25.0;
+        let labTimer = null;
+
+        const inputM = document.getElementById('input-m');
+        const selectMat = document.getElementById('select-material');
+        const inputPower = document.getElementById('input-power');
+        const dispTemp = document.getElementById('disp-temp');
+        const dispEnergy = document.getElementById('disp-energy');
+        const dispTime = document.getElementById('disp-time');
+        const heaterFlame = document.getElementById('heater-flame');
+        const btnText = document.getElementById('btn-text');
+        const thermLiquid = document.getElementById('thermometer-liquid');
+        const liquidColorDiv = document.getElementById('liquid-color');
+
+        function updateMaterialStyle() {
+            if (!selectMat || !liquidColorDiv) return;
+            const val = selectMat.value;
+            
+            if (val === "4200") {
+                liquidColorDiv.className = "w-[94%] bg-blue-500 rounded-b-2xl transition-all duration-500 opacity-90 flex items-center justify-center text-white text-xs font-bold shadow";
+                liquidColorDiv.innerText = "AIR";
+            } else if (val === "2090") {
+                liquidColorDiv.className = "w-[94%] bg-amber-400 rounded-b-2xl transition-all duration-500 opacity-90 flex items-center justify-center text-slate-900 text-xs font-bold shadow";
+                liquidColorDiv.innerText = "MINYAK";
+            } else if (val === "900") {
+                liquidColorDiv.className = "w-[94%] bg-slate-600 rounded-b-2xl transition-all duration-500 opacity-90 flex items-center justify-center text-white text-xs font-bold shadow";
+                liquidColorDiv.innerText = "ALUMINIUM";
+            }
+        }
+
+        function toggleHeater() {
+            isHeating = !isHeating;
+            if(isHeating) {
+                if(btnText) btnText.innerText = "Hentikan Pemanasan";
+                if(heaterFlame) heaterFlame.style.opacity = 1;
+                startLabSimulation();
+            } else {
+                if(btnText) btnText.innerText = "Mulai Pemanasan";
+                if(heaterFlame) heaterFlame.style.opacity = 0;
+                stopLabSimulation();
+            }
+        }
+
+        function startLabSimulation() {
+            if(labTimer) clearInterval(labTimer);
+            labTimer = setInterval(() => {
+                labTime += 1;
+                const power = parseFloat(inputPower.value);
+                const m = parseFloat(inputM.value);
+                const c = parseFloat(selectMat.value);
+                const totalQ = power * labTime;
+                
+                const deltaT = totalQ / (m * c);
+                labTemp = initialTemp + deltaT;
+
+                if(labTemp >= 100) {
+                    labTemp = 100;
+                    stopLabSimulation();
+                }
+                updateLabDisplay(totalQ);
+            }, 1000);
+        }
+
+        function stopLabSimulation() {
+            if(labTimer) clearInterval(labTimer);
+            isHeating = false;
+            if(btnText) btnText.innerText = "Mulai Pemanasan";
+            if(heaterFlame) heaterFlame.style.opacity = 0;
+        }
+
+        function updateLabDisplay(q = 0) {
+            if(dispTemp) dispTemp.innerText = `Suhu Zat (T): ${labTemp.toFixed(1)} °C`;
+            if(dispEnergy) dispEnergy.innerText = `Energi Diserap (Q): ${q.toLocaleString()} Joule`;
+            if(dispTime) dispTime.innerText = `Waktu (t): ${labTime} detik`;
+            
+            if(thermLiquid) {
+                const percent = ((labTemp - 25) / 75) * 85 + 15;
+                thermLiquid.style.height = `${Math.min(100, percent)}%`;
+            }
+        }
+
+        function resetLabKalor() {
+            stopLabSimulation();
+            labTime = 0;
+            labTemp = 25.0;
+            updateLabDisplay(0);
+        }
+
+        if(inputM) {
+            inputM.addEventListener('input', (e) => {
+                document.getElementById('val-m').innerText = parseFloat(e.target.value).toFixed(1) + " kg";
+            });
+            inputPower.addEventListener('input', (e) => {
+                document.getElementById('val-power').innerText = e.target.value + " Watt";
+            });
+        }
+
+        // --- 2. Perubahan Wujud ---
+        let wHeating = false;
+        let wTimer = null;
+        let wEnergyTotal = 0;
+        let wTemp = -10.0;
+
+        const wInputM = document.getElementById('w-input-m');
+        const wDispTemp = document.getElementById('w-temp');
+        const wDispPhase = document.getElementById('w-phase');
+        const wDispEnergy = document.getElementById('w-energy');
+        const wThermLiquid = document.getElementById('w-therm-liquid');
+        const substanceIcon = document.getElementById('substance-icon');
+        const substanceLabel = document.getElementById('substance-label');
+        const substanceVisual = document.getElementById('w-substance-visual');
+        const steamContainer = document.getElementById('steam-container');
+        const wHeaterFlame = document.getElementById('w-heater-flame');
+        const wBtnText = document.getElementById('w-btn-text');
+
+        function toggleWujudHeater() {
+            wHeating = !wHeating;
+            if(wHeating) {
+                if(wBtnText) wBtnText.innerText = "Hentikan Pemanasan";
+                if(wHeaterFlame) wHeaterFlame.style.opacity = 1;
+                startWujudSimulation();
+            } else {
+                if(wBtnText) wBtnText.innerText = "Mulai Pemanasan";
+                if(wHeaterFlame) wHeaterFlame.style.opacity = 0;
+                stopWujudSimulation();
+            }
+        }
+
+        function startWujudSimulation() {
+            if(wTimer) clearInterval(wTimer);
+            wTimer = setInterval(() => {
+                const m = parseFloat(wInputM.value);
+                wEnergyTotal += 20000;
+                
+                const q1 = m * 2100 * 10;
+                const q2 = q1 + (m * 40000); 
+                const q3 = q2 + (m * 4200 * 100);
+                const q4 = q3 + (m * 200000); 
+
+                if(wEnergyTotal <= q1) {
+                    wTemp = -10 + (wEnergyTotal / (m * 2100));
+                    if(substanceIcon) substanceIcon.innerHTML = "🧊🧊🧊";
+                    if(substanceLabel) substanceLabel.innerText = "PADAT (Es)";
+                    if(steamContainer) steamContainer.style.opacity = "0";
+                } else if(wEnergyTotal > q1 && wEnergyTotal <= q2) {
+                    wTemp = 0.0;
+                    if(substanceIcon) substanceIcon.innerHTML = "💧🧊";
+                    if(substanceLabel) substanceLabel.innerText = "MENCAIR (Es + Air)";
+                } else if(wEnergyTotal > q2 && wEnergyTotal <= q3) {
+                    wTemp = (wEnergyTotal - q2) / (m * 4200);
+                    if(substanceIcon) substanceIcon.innerHTML = "💧💧💧";
+                    if(substanceLabel) substanceLabel.innerText = "CAIR (Air)";
+                    if(steamContainer) steamContainer.style.opacity = "0";
+                } else if(wEnergyTotal > q3 && wEnergyTotal <= q4) {
+                    wTemp = 100.0;
+                    if(substanceIcon) substanceIcon.innerHTML = "💨💧";
+                    if(substanceLabel) substanceLabel.innerText = "MENGUAP (Air + Uap)";
+                    if(steamContainer) steamContainer.style.opacity = "1";
+                } else {
+                    wTemp = 105.0;
+                    if(substanceIcon) substanceIcon.innerHTML = "💨💨💨";
+                    if(substanceLabel) substanceLabel.innerText = "GAS (Uap Panas)";
+                    if(steamContainer) steamContainer.style.opacity = "1";
+                }
+                updateWujudDisplay();
+            }, 200);
+        }
+
+        function stopWujudSimulation() {
+            if(wTimer) clearInterval(wTimer);
+            wHeating = false;
+            if(wBtnText) wBtnText.innerText = "Mulai Pemanasan";
+            if(wHeaterFlame) wHeaterFlame.style.opacity = 0;
+        }
+
+        function updateWujudDisplay() {
+            if(wDispTemp) wDispTemp.innerText = `Suhu Zat (T): ${wTemp.toFixed(1)} °C`;
+            if(wDispEnergy) wDispEnergy.innerText = `Kalor Diserap (Q): ${wEnergyTotal.toLocaleString()} Joule`;
+            
+            if(wDispPhase) {
+                if(wTemp < 0) wDispPhase.innerText = "Wujud: Es (Padat)";
+                else if(wTemp === 0 && wEnergyTotal <= 150000) wDispPhase.innerText = "Wujud: Es Mencair";
+                else if(wTemp > 0 && wTemp < 100) wDispPhase.innerText = "Wujud: Air (Cair)";
+                else if(wTemp === 100) wDispPhase.innerText = "Wujud: Air Menguap";
+                else wDispPhase.innerText = "Wujud: Uap (Gas)";
+            }
+
+            if(wThermLiquid) {
+                const percent = ((wTemp + 10) / 120) * 85 + 10;
+                wThermLiquid.style.height = `${Math.min(100, percent)}%`;
+            }
+        }
+
+        function resetLabWujud() {
+            stopWujudSimulation();
+            wEnergyTotal = 0;
+            wTemp = -10.0;
+            
+            if(substanceIcon) substanceIcon.innerHTML = "🧊🧊🧊";
+            if(substanceLabel) substanceLabel.innerText = "PADAT (Es)";
+            if(steamContainer) steamContainer.style.opacity = "0";
+            if(wDispPhase) wDispPhase.innerText = "Wujud: Es (Padat)";
+            
+            updateWujudDisplay();
+        }
+
+        if(wInputM) {
+            wInputM.addEventListener('input', (e) => {
+                const valMEl = document.getElementById('w-val-m');
+                if(valMEl) valMEl.innerText = parseFloat(e.target.value).toFixed(1) + " kg";
+            });
+        }
+
+        // --- 3. Grafik Pemanasan ---
+        const sGraph = document.getElementById('slider-graph');
+        const graphData = [
+            { name: "1. Es Memanas", temp: "-10 °C", desc: "Suhu es naik dari -10°C ke titik leburnya.", badge: "Tahap 1 dari 5", icon: "🧊", pos: "5%", formula: "Rumus: Q = m × c(es) × ΔT" },
+            { name: "2. Es Mencair", temp: "0 °C", desc: "Kalor laten lebur pada suhu konstan (Wujud berubah jadi air).", badge: "Tahap 2 dari 5", icon: "💧", pos: "27%", formula: "Rumus: Q = m × L (Kalor Lebur)" },
+            { name: "3. Air Memanas", temp: "0°C - 100°C", desc: "Suhu air cair naik secara bertahap menuju titik didih.", badge: "Tahap 3 dari 5", icon: "🌡️", pos: "50%", formula: "Rumus: Q = m × c(air) × ΔT" },
+            { name: "4. Air Menguap", temp: "100 °C", desc: "Kalor laten penguapan pada suhu konstan (Wujud berubah jadi uap).", badge: "Tahap 4 dari 5", icon: "💨", pos: "72%", formula: "Rumus: Q = m × U (Kalor Uap)" },
+            { name: "5. Uap Memanas", temp: "> 100 °C", desc: "Suhu uap air naik melampaui 100°C.", badge: "Tahap 5 dari 5", icon: "☁️", pos: "92%", formula: "Rumus: Q = m × c(uap) × ΔT" }
+        ];
+
+        function setGraphStage(stageNum) {
+            if(!sGraph) return;
+            sGraph.value = stageNum;
+            updateGraphDisplay(stageNum - 1);
+        }
+
+        function updateGraphDisplay(idx) {
+            const data = graphData[idx];
+            document.getElementById('g-stage-title').innerText = data.name;
+            document.getElementById('g-temp-box').innerText = data.temp;
+            document.getElementById('g-desc').innerText = data.desc;
+            document.getElementById('g-badge').innerText = data.badge;
+            document.getElementById('g-formula').innerText = data.formula;
+
+            const marker = document.getElementById('graph-animated-marker');
+            const markerIcon = document.getElementById('marker-icon');
+            const markerLabel = document.getElementById('marker-label');
+            if(marker) {
+                marker.style.left = data.pos;
+                markerIcon.innerText = data.icon;
+                markerLabel.innerText = data.temp;
+            }
+
+            for(let i = 1; i <= 5; i++) {
+                const btn = document.getElementById('btn-g' + i) || document.getElementById('tab-g' + i);
+                if(btn) {
+                    if(i === (idx + 1)) {
+                        btn.className = "p-3 rounded-xl border border-emerald-300 bg-emerald-600 text-white font-bold text-xs transition cursor-pointer text-center shadow-sm scale-105";
+                    } else {
+                        btn.className = "p-3 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-xs transition cursor-pointer text-center shadow-sm hover:bg-emerald-50";
+                    }
+                }
+            }
+        }
+
+        if(sGraph) {
+            sGraph.addEventListener('input', () => {
+                updateGraphDisplay(parseInt(sGraph.value) - 1);
+            });
+        }
+
+        // --- 4. Penguapan ---
+        function updateEvapLab() {
+            const wide = document.getElementById('chk-l').checked;
+            const heat = document.getElementById('chk-s').checked;
+            const wind = document.getElementById('chk-a').checked;
+            const closed = document.getElementById('chk-t').checked;
+
+            const containerBox = document.getElementById('evap-container-box');
+            const lid = document.getElementById('evap-lid');
+            const steamAnim = document.getElementById('evap-steam-anim');
+            const resText = document.getElementById('res-evap');
+
+            if(wide) containerBox.style.width = "220px";
+            else containerBox.style.width = "140px";
+
+            if(closed) lid.classList.remove('hidden');
+            else lid.classList.add('hidden');
+
+            if(closed) {
+                resText.innerText = "TERHAMBAT 💧";
+                steamAnim.style.opacity = "0";
+            } else {
+                steamAnim.style.opacity = "1";
+                resText.innerText = "SANGAT CEPAT ⚡";
+            }
+        }
+
+        // --- 5. Asas Black ---
+        function calcBlack() {
+            const m1 = parseFloat(document.getElementById('b-m1').value) || 0;
+            const t1 = parseFloat(document.getElementById('b-t1').value) || 0;
+            const m2 = parseFloat(document.getElementById('b-m2').value) || 0;
+            const t2 = parseFloat(document.getElementById('b-t2').value) || 0;
+            const ta = (m1 * t1 + m2 * t2) / (m1 + m2);
+
+            document.getElementById('label-m1-vis').innerText = `${m1} kg | ${t1} °C`;
+            document.getElementById('label-m2-vis').innerText = `${m2} kg | ${t2} °C`;
+            document.getElementById('vis-ta-result').innerText = `${ta.toFixed(2)} °C`;
+        }
+
+        // --- 6. Perpindahan Kalor ---
+        const heatData = {
+            konduksi: {
+                title: "Perpindahan Kalor Secara Konduksi (Uji Sendok)",
+                badge: "Mode: Konduksi",
+                desc: "Uji coba mencelupkan tiga jenis sendok ke dalam air panas. Logam adalah konduktor terbaik, sedangkan kayu dan plastik adalah isolator.",
+                example: "Perhatikan angka suhu di atas sendok yang naik lebih cepat pada sendok logam.",
+                bgBox: "bg-gradient-to-br from-orange-50 to-red-100 border border-orange-300",
+                htmlContent: `
+                    <div class="flex flex-col items-center justify-center relative w-full h-full p-4">
+                        <div class="w-48 h-56 bg-white/90 border-2 border-slate-400 rounded-b-3xl relative flex items-end justify-center pb-3 shadow-inner">
+                            <div class="absolute bottom-2 w-[92%] h-7 bg-sky-500/80 rounded-xl flex items-center justify-center text-xs font-black text-white shadow z-10">Air Panas ♨️</div>
+                            <div class="absolute inset-x-4 top-2 bottom-10 flex justify-around items-end z-10">
+                                <div class="w-4 h-44 bg-slate-400 rounded-t-full shadow transform -rotate-6 flex flex-col items-center pt-2">
+                                    <span id="stat-logam" class="text-[10px] bg-red-600 text-white font-black px-1.5 py-0.5 rounded shadow">26°C</span>
+                                    <span class="text-[9px] text-black font-black mt-1">Logam</span>
+                                </div>
+                                <div class="w-5 h-44 bg-amber-600 rounded-t-full shadow flex flex-col items-center pt-2">
+                                    <span id="stat-kayu" class="text-[10px] bg-amber-700 text-white font-black px-1.5 py-0.5 rounded shadow">26°C</span>
+                                    <span class="text-[9px] text-black font-black mt-1">Kayu</span>
+                                </div>
+                                <div class="w-4 h-44 bg-slate-200 rounded-t-full shadow transform rotate-6 flex flex-col items-center pt-2">
+                                    <span id="stat-plastik" class="text-[10px] bg-blue-600 text-white font-black px-1.5 py-0.5 rounded shadow">26°C</span>
+                                    <span class="text-[9px] text-black font-black mt-1">Plastik</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `,
+                extra: `<button onclick="runKonduksiTest()" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-xl text-xs shadow transition cursor-pointer">Mulai Uji Coba Hantaran Sendok ⏱️</button>`
+            },
+            konveksi: {
+                title: "Perpindahan Kalor Secara Konveksi (Sirkulasi Air Pemanasan)",
+                badge: "Mode: Konveksi",
+                desc: "Simulasi pemanasan air di dalam wadah. Saat kompor menyala, partikel air panas bergerak naik dan air dingin bergerak turun.",
+                example: "Perhatikan pertukaran tempat partikel merah (panas) dan biru (dingin).",
+                bgBox: "bg-gradient-to-br from-sky-50 to-blue-100 border border-sky-300",
+                htmlContent: `
+                    <div class="flex flex-col items-center justify-center relative w-full h-full p-4">
+                        <div class="w-60 h-48 bg-white/90 border-2 border-sky-400 rounded-b-3xl relative flex items-end justify-center pb-3 shadow-inner overflow-hidden">
+                            <div class="w-[94%] h-36 bg-sky-200/90 rounded-b-2xl relative flex items-center justify-center overflow-hidden">
+                                <div id="particle-group" class="absolute inset-0 flex justify-between px-6 items-center transition-all duration-1000">
+                                    <div class="flex flex-col justify-between h-28 py-1">
+                                        <div id="p-top-left" class="text-xl transition-all duration-1000">🔵</div>
+                                        <div id="p-bottom-left" class="text-xl transition-all duration-1000">🔴</div>
+                                    </div>
+                                    <div class="flex flex-col justify-between h-28 py-1">
+                                        <div id="p-top-right" class="text-xl transition-all duration-1000">🔵</div>
+                                        <div id="p-bottom-right" class="text-xl transition-all duration-1000">🔴</div>
+                                    </div>
+                                </div>
+                                <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                    <span class="bg-white/80 px-3 py-1 rounded-full text-[10px] font-black text-sky-900 shadow">Sirkulasi Perpindahan Tempat 🔄</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="w-32 h-6 bg-slate-700 rounded-lg mt-3 flex justify-center items-center shadow">
+                            <span id="burner-status" class="text-orange-400 text-xs font-extrabold">🔥 Burner Siap</span>
+                        </div>
+                    </div>
+                `,
+                extra: `<button onclick="runKonveksiTest()" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-3 rounded-xl text-xs shadow transition cursor-pointer">Jalankan Perpindahan Partikel Konveksi 🌊</button>`
+            },
+            radiasi: {
+                title: "Perpindahan Kalor Secara Radiasi (Uji Lampu & Cangkir)",
+                badge: "Mode: Radiasi",
+                desc: "Eksperimen lampu pemanas menyoroti dua cangkir (terang vs gelap). Cangkir gelap menyerap radiasi panas jauh lebih cepat.",
+                example: "Amati kenaikan suhu pada termometer cangkir gelap yang lebih cepat dibanding cangkir terang.",
+                bgBox: "bg-gradient-to-br from-purple-50 to-amber-100 border border-purple-300",
+                htmlContent: `
+                    <div class="flex flex-col items-center space-y-3 w-full p-2">
+                        <div class="flex flex-col items-center">
+                            <div class="text-3xl animate-bounce">💡</div>
+                            <div class="w-24 h-6 bg-slate-600 rounded-t-xl flex items-center justify-center text-white text-[9px] font-bold shadow">Heat Lamp</div>
+                            <div class="w-32 h-6 bg-yellow-400 rounded-b-full opacity-75 animate-pulse shadow-md"></div>
+                        </div>
+                        <div class="flex justify-around w-full px-6 items-end mt-2">
+                            <div class="flex flex-col items-center">
+                                <span class="text-[10px] font-bold text-sky-900 mb-1">Cangkir Terang</span>
+                                <div class="w-12 h-20 bg-slate-100 border-2 border-slate-400 rounded-b-xl relative flex items-center justify-center shadow">
+                                    <div id="thermo-light" class="w-1 bg-red-500 h-8 absolute bottom-1 rounded transition-all"></div>
+                                </div>
+                                <span id="temp-light-val" class="text-xs font-black text-slate-700 mt-1">26.0°C</span>
+                            </div>
+                            <div class="flex flex-col items-center">
+                                <span class="text-[10px] font-bold text-slate-900 mb-1">Cangkir Gelap</span>
+                                <div class="w-12 h-20 bg-slate-800 border-2 border-slate-900 rounded-b-xl relative flex items-center justify-center shadow">
+                                    <div id="thermo-dark" class="w-1 bg-red-500 h-10 absolute bottom-1 rounded transition-all"></div>
+                                </div>
+                                <span id="temp-dark-val" class="text-xs font-black text-slate-700 mt-1">29.0°C</span>
+                            </div>
+                        </div>
+                    </div>
+                `,
+                extra: `<button onclick="runLampExperiment()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-xl text-xs shadow transition cursor-pointer">Nyalakan Lampu Pemanas (Radiasi) 💡</button>`
+            }
+        };
+
+        function switchHeatMode(mode) {
+            const data = heatData[mode];
+            if(!data) return;
+
+            ['konduksi', 'konveksi', 'radiasi'].forEach(m => {
+                const btn = document.getElementById('btn-heat-' + m);
+                if(btn) {
+                    if(m === mode) {
+                        btn.className = "p-4 rounded-xl border-2 border-orange-500 bg-orange-100 font-bold text-orange-900 text-xs transition cursor-pointer text-center shadow-md scale-105";
+                    } else {
+                        btn.className = "p-4 rounded-xl border-2 border-slate-200 bg-white font-bold text-slate-700 text-xs transition cursor-pointer text-center shadow-sm hover:bg-slate-50";
+                    }
+                }
+            });
+
+            document.getElementById('heat-title').innerText = data.title;
+            document.getElementById('heat-badge').innerText = data.badge;
+            document.getElementById('heat-desc').innerText = data.desc;
+            document.getElementById('heat-example').innerText = data.example;
+            document.getElementById('extra-control-container').innerHTML = data.extra;
+
+            const animBox = document.getElementById('heat-animation-box');
+            if(animBox) {
+                animBox.className = `rounded-2xl h-80 flex flex-col items-center justify-center relative overflow-hidden shadow-inner ${data.bgBox}`;
+                animBox.innerHTML = data.htmlContent;
+            }
+        }
+
+        let konduksiRunning = false;
+        function runKonduksiTest() {
+            if(konduksiRunning) return;
+            konduksiRunning = true;
+            let tLogam = 26, tKayu = 26, tPlastik = 26;
+
+            const interval = setInterval(() => {
+                tLogam += 1.8;
+                tKayu += 0.4;
+                tPlastik += 0.5;
+
+                if(document.getElementById('stat-logam')) document.getElementById('stat-logam').innerText = tLogam.toFixed(0) + "°C 🔥";
+                if(document.getElementById('stat-kayu')) document.getElementById('stat-kayu').innerText = tKayu.toFixed(0) + "°C 🛡️";
+                if(document.getElementById('stat-plastik')) document.getElementById('stat-plastik').innerText = tPlastik.toFixed(0) + "°C 🛡️";
+
+                if(tLogam >= 70) {
+                    clearInterval(interval);
+                    konduksiRunning = false;
+                }
+            }, 200);
+        }
+
+        let konveksiRunning = false;
+        let konveksiFinished = false;
+
+        function runKonveksiTest() {
+            if(konveksiRunning) return;
+            
+            const burnerStatus = document.getElementById('burner-status');
+            const pTopLeft = document.getElementById('p-top-left');
+            const pBottomLeft = document.getElementById('p-bottom-left');
+            const pTopRight = document.getElementById('p-top-right');
+            const pBottomRight = document.getElementById('p-bottom-right');
+
+            if(konveksiFinished) {
+                if(pTopLeft && pBottomLeft) {
+                    pTopLeft.innerHTML = "🔵";
+                    pBottomLeft.innerHTML = "🔴";
+                    pTopRight.innerHTML = "🔵";
+                    pBottomRight.innerHTML = "🔴";
+                    pTopLeft.style.transform = "translateY(0px)";
+                    pBottomLeft.style.transform = "translateY(0px)";
+                    pTopRight.style.transform = "translateY(0px)";
+                    pBottomRight.style.transform = "translateY(0px)";
+                }
+                if(burnerStatus) burnerStatus.innerText = "🔥 Burner Siap";
+                konveksiFinished = false;
+                return;
+            }
+
+            konveksiRunning = true;
+            if(burnerStatus) burnerStatus.innerText = "🔥 Burner Menyala";
+
+            let step = 0;
+            const interval = setInterval(() => {
+                step++;
+                if(pTopLeft && pBottomLeft && pTopRight && pBottomRight) {
+                    if(step % 2 === 1) {
+                        pTopLeft.style.transform = "translateY(12px)";
+                        pBottomLeft.style.transform = "translateY(-12px)";
+                        pTopRight.style.transform = "translateY(12px)";
+                        pBottomRight.style.transform = "translateY(-12px)";
+                    } else {
+                        pTopLeft.style.transform = "translateY(24px)";
+                        pBottomLeft.style.transform = "translateY(-24px)";
+                        pTopRight.style.transform = "translateY(24px)";
+                        pBottomRight.style.transform = "translateY(-24px)";
+                    }
+                }
+
+                if(step >= 8) {
+                    clearInterval(interval);
+                    konveksiRunning = false;
+                    konveksiFinished = true;
+
+                    if(pTopLeft && pBottomLeft) {
+                        pTopLeft.innerHTML = "🔴";
+                        pBottomLeft.innerHTML = "🔵";
+                        pTopRight.innerHTML = "🔴";
+                        pBottomRight.innerHTML = "🔵";
+                        pTopLeft.style.transform = "translateY(24px)";
+                        pBottomLeft.style.transform = "translateY(-24px)";
+                        pTopRight.style.transform = "translateY(24px)";
+                        pBottomRight.style.transform = "translateY(-24px)";
+                    }
+                    if(burnerStatus) burnerStatus.innerText = "✅ Selesai";
+                }
+            }, 300);
+        }
+
+        let lampRunning = false;
+        function runLampExperiment() {
+            if(lampRunning) return;
+            lampRunning = true;
+            let tLight = 26.0;
+            let tDark = 29.0;
+
+            const tLightEl = document.getElementById('temp-light-val');
+            const tDarkEl = document.getElementById('temp-dark-val');
+            const barLight = document.getElementById('thermo-light');
+            const barDark = document.getElementById('thermo-dark');
+
+            const interval = setInterval(() => {
+                tLight += 0.5;
+                tDark += 1.1;
+
+                if(tLightEl) tLightEl.innerText = tLight.toFixed(1) + " °C";
+                if(tDarkEl) tDarkEl.innerText = tDark.toFixed(1) + " °C";
+
+                if(barLight) barLight.style.height = Math.min(60, (tLight - 20) * 1.3) + "px";
+                if(barDark) barDark.style.height = Math.min(60, (tDark - 20) * 1.3) + "px";
+
+                if(tDark >= 52) {
+                    clearInterval(interval);
+                    lampRunning = false;
+                }
+            }, 250);
+        }
+
+        // --- 7. Kearifan Lokal ---
+        const lokalModeData = {
+            kemplang: {
+                headerTitle: "Panggang Kemplang, Rasakan Kalornya",
+                headerDesc: "Eksperimen pembakaran kemplang tunu dan pengeringan ikan salai.",
+                controlsHTML: `
+                    <div class="space-y-1">
+                        <label class="font-semibold text-slate-700">Jarak kemplang dari bara:</label>
+                        <select id="lokal-opt-1" class="w-full bg-blue-50/50 border border-blue-200 rounded-xl px-3 py-2 font-medium text-slate-800 outline-none cursor-pointer">
+                            <option value="sedang">Sedang (± 15 cm)</option>
+                            <option value="dekat">Dekat (± 5 cm)</option>
+                        </select>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="font-semibold text-slate-700">Waktu pemanggangan:</label>
+                        <select id="lokal-opt-2" class="w-full bg-blue-50/50 border border-blue-200 rounded-xl px-3 py-2 font-medium text-slate-800 outline-none cursor-pointer">
+                            <option value="20">20 detik</option>
+                            <option value="40">40 detik</option>
+                        </select>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="font-semibold text-slate-700">Membalik kemplang:</label>
+                        <select id="lokal-opt-3" class="w-full bg-blue-50/50 border border-blue-200 rounded-xl px-3 py-2 font-medium text-slate-800 outline-none cursor-pointer">
+                            <option value="ya">Ya (Dibalik agar merata)</option>
+                            <option value="tidak">Tidak (Dibiarkan 1 sisi)</option>
+                        </select>
+                    </div>
+                `,
+                btnText: "Mulai Pemanggangan",
+                factText: "Kemplang tunu memanfaatkan radiasi panas bara langsung untuk memuaskan udara di dalam adonan.",
+                statTitle: "Suhu Kemplang",
+                statVal: "28 °C",
+                kadarAirVal: "25%",
+                initialHTML: `
+                    <div class="relative w-48 h-48 flex items-center justify-center">
+                        <div class="absolute bottom-0 w-44 h-16 bg-stone-700 rounded-b-full border-t-4 border-orange-600 flex justify-center items-center">
+                            <span id="tungku-flame-icon" class="text-orange-500 text-xl font-black tracking-widest animate-pulse">🔥🔥🔥</span>
+                        </div>
+                        <div id="sim-object" class="w-20 h-20 bg-amber-100 border-2 border-amber-300 rounded-full shadow-2xl flex items-center justify-center text-xs font-bold text-slate-800 transition-all duration-1000 transform scale-95 translate-y-2">Mentah</div>
+                    </div>
+                    <div class="bg-black/60 backdrop-blur border border-white/10 px-4 py-2 rounded-xl text-center space-y-1 w-full">
+                        <span class="text-xs font-extrabold text-highlight block" id="sim-status-label">Status: Belum Dipanggang (Menunggu...)</span>
+                        <span class="text-[10px] text-blue-200">Tekan tombol mulai untuk melihat proses pemuaian & kalor</span>
+                    </div>
+                `,
+                resWarna: "Putih Pucat (Mentah)",
+                resTekstur: "Pipih / Belum Mengembang",
+                resSuhu: "28 °C",
+                realImgHTML: `<img src="kemplang.jpg" alt="Kemplang Tunu" class="w-full h-full object-cover">`,
+                imgCaption: "Dokumentasi Asli: Pemanggangan Kemplang Tunu"
+            },
+            salai: {
+                headerTitle: "Pengasapan Ikan (Ikan Salai)",
+                headerDesc: "Asap, panas, dan konservasi makanan tradisional melalui aliran konveksi udara panas.",
+                controlsHTML: `
+                    <div class="space-y-1">
+                        <label class="font-semibold text-slate-700">Suhu pengasapan:</label>
+                        <select id="lokal-opt-1" class="w-full bg-blue-50/50 border border-blue-200 rounded-xl px-3 py-2 font-medium text-slate-800 outline-none cursor-pointer">
+                            <option value="60">60 °C</option>
+                            <option value="80">80 °C</option>
+                        </select>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="font-semibold text-slate-700">Lama pengasapan:</label>
+                        <select id="lokal-opt-2" class="w-full bg-blue-50/50 border border-blue-200 rounded-xl px-3 py-2 font-medium text-slate-800 outline-none cursor-pointer">
+                            <option value="20">20 menit</option>
+                            <option value="40">40 menit</option>
+                        </select>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="font-semibold text-slate-700">Kadar Air Awal Ikan:</label>
+                        <select id="lokal-opt-3" class="w-full bg-blue-50/50 border border-blue-200 rounded-xl px-3 py-2 font-medium text-slate-800 outline-none cursor-pointer">
+                            <option value="tinggi">Basah / Segar (Kadar Air Tinggi 80%)</option>
+                            <option value="sedang">Setengah Kering (Kadar Air Sedang 50%)</option>
+                        </select>
+                    </div>
+                `,
+                btnText: "Mulai Pengasapan",
+                factText: "Pengasapan ikan merupakan cara mengawetkan makanan dengan memanfaatkan panas dan asap (konveksi dan radiasi) untuk menurunkan kadar air.",
+                statTitle: "Suhu Ikan",
+                statVal: "26 °C",
+                kadarAirVal: "80%",
+                initialHTML: `
+                    <div class="relative w-48 h-48 flex flex-col items-center justify-center">
+                        <div class="absolute top-1 text-sky-300 text-xs animate-pulse opacity-0" id="smoke-effect">💨 Asap Konveksi Naik 💨</div>
+                        <img id="sim-object" src="ikan.jpg" alt="Ikan Segar" class="w-40 h-24 object-contain transition-all duration-1000 shadow-lg" style="filter: hue-rotate(180deg) saturate(150%);">
+                        <div class="mt-2 flex flex-col items-center">
+                            <span id="tungku-flame-icon" class="text-orange-500 text-xl font-black tracking-widest animate-pulse">🔥🔥🔥</span>
+                        </div>
+                    </div>
+                    <div class="bg-black/60 backdrop-blur border border-white/10 px-4 py-2 rounded-xl text-center space-y-1 w-full">
+                        <span class="text-xs font-extrabold text-highlight block" id="sim-status-label">Status: Belum Diasap (Segar - Warna Biru)</span>
+                        <span class="text-[10px] text-blue-200">Tekan tombol mulai untuk mengasapi & mengeringkan ikan</span>
+                    </div>
+                `,
+                resWarna: "Biru Segar (Belum Salai)",
+                resTekstur: "Daging Lunak Berair",
+                resSuhu: "26 °C",
+                realImgHTML: `<img src="salai.jpg" alt="Ikan Salai" class="w-full h-full object-cover">`,
+                imgCaption: "Dokumentasi Asli: Proses Pengasapan Ikan Salai"
+            }
+        };
+
+        let currentLokalType = 'kemplang';
+
+        function updateTungkuFlame() {
+            const level = document.getElementById('lokal-slider-api').value;
+            const labelApi = document.getElementById('label-api-val');
+            const flameIcon = document.getElementById('tungku-flame-icon');
+
+            if(level === '1') {
+                if(labelApi) labelApi.innerText = "Kecil";
+                if(flameIcon) flameIcon.innerText = "🔥";
+                if(flameIcon) flameIcon.className = "text-yellow-500 text-lg font-black tracking-widest";
+            } else if(level === '2') {
+                if(labelApi) labelApi.innerText = "Sedang";
+                if(flameIcon) flameIcon.innerText = "🔥🔥";
+                if(flameIcon) flameIcon.className = "text-orange-500 text-xl font-black tracking-widest animate-pulse";
+            } else {
+                if(labelApi) labelApi.innerText = "Besar";
+                if(flameIcon) flameIcon.innerText = "🔥🔥🔥";
+                if(flameIcon) flameIcon.className = "text-red-500 text-2xl font-black tracking-widest animate-bounce";
+            }
+        }
+
+        function switchLokalMode(mode) {
+            currentLokalType = mode;
+            const data = lokalModeData[mode];
+            if(!data) return;
+
+            document.getElementById('lokal-header-title').innerText = data.headerTitle;
+            document.getElementById('lokal-header-desc').innerText = data.headerDesc;
+            document.getElementById('lokal-controls-container').innerHTML = data.controlsHTML;
+            document.getElementById('lokal-btn-run-text').innerText = data.btnText;
+            document.getElementById('lokal-fact-text').innerText = data.factText;
+            document.getElementById('lokal-stat-title').innerText = data.statTitle;
+            document.getElementById('lokal-stat-val').innerText = data.statVal;
+            document.getElementById('lokal-visual-stage').innerHTML = data.initialHTML;
+            document.getElementById('lokal-kadar-air-val').innerText = data.kadarAirVal;
+
+            document.getElementById('res-warna').innerText = data.resWarna;
+            document.getElementById('res-tekstur').innerText = data.resTekstur;
+            document.getElementById('res-suhu').innerText = data.statVal;
+
+            const imgBox = document.getElementById('lokal-real-image-box');
+            if(imgBox) imgBox.innerHTML = data.realImgHTML;
+
+            const imgCap = document.getElementById('lokal-image-caption');
+            if(imgCap) imgCap.innerText = data.imgCaption;
+
+            const btnKemplang = document.getElementById('tab-step-kemplang');
+            const btnSalai = document.getElementById('tab-step-salai');
+            if(mode === 'kemplang') {
+                if(btnKemplang) btnKemplang.className = "px-3 py-1.5 rounded-lg bg-white text-sidebar shadow transition cursor-pointer";
+                if(btnSalai) btnSalai.className = "px-3 py-1.5 rounded-lg text-blue-100 hover:bg-white/10 transition cursor-pointer";
+            } else {
+                if(btnSalai) btnSalai.className = "px-3 py-1.5 rounded-lg bg-white text-sidebar shadow transition cursor-pointer";
+                if(btnKemplang) btnKemplang.className = "px-3 py-1.5 rounded-lg text-blue-100 hover:bg-white/10 transition cursor-pointer";
+            }
+        }
+
+        function runLokalExperimentSimulation() {
+            const obj = document.getElementById('sim-object');
+            const label = document.getElementById('sim-status-label');
+            const statVal = document.getElementById('lokal-stat-val');
+            const kadarAirLabel = document.getElementById('lokal-kadar-air-val');
+            
+            const resWarna = document.getElementById('res-warna');
+            const resTekstur = document.getElementById('res-tekstur');
+            const resSuhu = document.getElementById('res-suhu');
+
+            if(!obj) return;
+
+            const apiLevel = parseInt(document.getElementById('lokal-slider-api').value) || 2; 
+            const opt1 = document.getElementById('lokal-opt-1') ? document.getElementById('lokal-opt-1').value : 'sedang';
+            const opt2 = document.getElementById('lokal-opt-2') ? parseInt(document.getElementById('lokal-opt-2').value) : 20;
+            const opt3 = document.getElementById('lokal-opt-3') ? document.getElementById('lokal-opt-3').value : 'ya';
+
+            if(currentLokalType === 'kemplang') {
+                label.innerText = `Status: 🔥 Dipanggang (Api Level ${apiLevel}, Jarak: ${opt1})...`;
+                let temp = 28;
+                let kadarAir = 25; 
+                
+                const speedFactor = (opt1 === 'dekat' ? 1.5 : 1.0) * apiLevel;
+                const targetTemp = 28 + (opt2 * speedFactor);
+
+                const timer = setInterval(() => {
+                    temp += speedFactor * 1.5;
+                    kadarAir = Math.max(5, kadarAir - (speedFactor * 0.5));
+                    
+                    statVal.innerText = Math.round(temp) + " °C";
+                    resSuhu.innerText = Math.round(temp) + " °C";
+                    if(kadarAirLabel) kadarAirLabel.innerText = Math.round(kadarAir) + "%";
+
+                    if(temp >= targetTemp || temp >= 100) {
+                        clearInterval(timer);
+                        
+                        if(apiLevel === 3 || (opt1 === 'dekat' && opt2 >= 40)) {
+                            obj.style.filter = "brightness(30%) contrast(200%)";
+                            obj.innerText = "Gosong Total ⚠️";
+                            label.innerText = "Status: ⚠️ Api terlalu besar/dekat! Kemplang gosong menyeluruh dan rusak.";
+                            resWarna.innerHTML = `<strong class="text-red-600">Hitam / Gosong Total</strong>`;
+                            resTekstur.innerHTML = `<strong class="text-red-600">Terlalu Keras</strong>`;
+                        } 
+                        else if(apiLevel === 1) {
+                            obj.style.filter = "none";
+                            obj.innerText = "Belum Matang";
+                            label.innerText = "Status: ⏱️ Api terlalu kecil, kalor tidak cukup memuaskan adonan kemplang.";
+                            resWarna.innerHTML = `<strong class="text-amber-600">Putih Kekuningan</strong>`;
+                            resTekstur.innerHTML = `<strong class="text-amber-600">Kurang Mengembang</strong>`;
+                        } 
+                        else if(opt3 === 'tidak') {
+                            obj.style.filter = "sepia(90%) hue-rotate(-50deg)";
+                            obj.innerText = "Gosong Sebelah ⚠️";
+                            label.innerText = "Status: ⚠️ Sisi bawah gosong karena tidak dibalik!";
+                            resWarna.innerHTML = `<strong class="text-orange-700">Hitam Sebelah</strong>`;
+                            resTekstur.innerHTML = `<strong class="text-orange-700">Tidak Rata</strong>`;
+                        } 
+                        else {
+                            obj.style.filter = "sepia(40%) saturate(150%)";
+                            obj.className = "w-32 h-32 bg-amber-300 border-2 border-amber-500 rounded-full shadow-2xl flex items-center justify-center text-xs font-extrabold text-amber-900 transition-all duration-1000 transform scale-110";
+                            obj.innerText = "Matang & Mengembang 🍘";
+                            label.innerText = "Status: ✅ Sempurna! Pengaturan api sedang & jarak pas membuat kalor merata.";
+                            resWarna.innerHTML = `<strong class="text-amber-600">Kuning Keemasan 🌟</strong>`;
+                            resTekstur.innerHTML = `<strong class="text-amber-600">Mengembang & Renyah 🍘</strong>`;
+                        }
+                    }
+                }, 100);
+
+            } else {
+                const optKadarAir = document.getElementById('lokal-opt-3') ? document.getElementById('lokal-opt-3').value : 'tinggi';
+                let kadarAir = (optKadarAir === 'tinggi') ? 80 : 50;
+                
+                label.innerText = `Status: 💨 Pengasapan & Pengeringan Ikan (Api Level ${apiLevel})...`;
+                const smoke = document.getElementById('smoke-effect');
+                if(smoke) smoke.style.opacity = "1";
+                let temp = 26;
+                
+                const targetSalaiTemp = parseInt(document.getElementById('lokal-opt-1').value) || 60;
+                const drySpeed = apiLevel * 4;
+
+                const timer = setInterval(() => {
+                    temp += (targetSalaiTemp - temp) * 0.2;
+                    kadarAir = Math.max(15, kadarAir - drySpeed);
+                    
+                    statVal.innerText = Math.round(temp) + " °C";
+                    resSuhu.innerText = Math.round(temp) + " °C";
+                    if(kadarAirLabel) kadarAirLabel.innerText = Math.round(kadarAir) + "%";
+
+                    if(kadarAir <= 25 || temp >= targetSalaiTemp - 2) {
+                        clearInterval(timer);
+                        
+                        if(apiLevel === 3) {
+                            obj.style.filter = "sepia(100%) brightness(20%) contrast(200%)";
+                            label.innerText = "Status: ⚠️ Api terlalu besar! Luar ikan gosong tapi bagian dalam belum kering sempurna.";
+                            resWarna.innerHTML = `<strong class="text-red-600">Gosong Luar</strong>`;
+                            resTekstur.innerHTML = `<strong class="text-red-600">Keras di Luar, Basah di Dalam</strong>`;
+                        } else {
+                            obj.style.filter = "sepia(90%) saturate(250%) brightness(75%)";
+                            label.innerText = "Status: ✅ Sempurna! Proses konveksi panas & penurunan kadar air menghasilkan ikan salai cokelat matang.";
+                            resWarna.innerHTML = `<strong class="text-amber-800">Cokelat Keemasan (Khas Ikan Salai Matang) ✨</strong>`;
+                            resTekstur.innerHTML = `<strong class="text-amber-800">Kering, Kesat & Awet 🐟</strong>`;
+                        }
+                    }
+                }, 150);
+            }
+        }
+
+        // --- Validasi Physics Challenge ---
+        function submitAllChallenge() {
+            const ch1 = document.querySelector('input[name="ch1"]:checked');
+            const ch2 = document.querySelector('input[name="ch2"]:checked');
+            const ch3 = document.querySelector('input[name="ch3"]:checked');
+            const ch4 = document.querySelector('input[name="ch4"]:checked');
+            const ch5 = document.querySelector('input[name="ch5"]:checked');
+
+            if(!ch1 || !ch2 || !ch3 || !ch4 || !ch5) {
+                alert("Mohon jawab seluruh 5 soal Physics Challenge terlebih dahulu!");
+                return;
+            }
+
+            let correctCount = 0;
+            if(ch1.value === 'B') correctCount++;
+            if(ch2.value === 'B') correctCount++;
+            if(ch3.value === 'B') correctCount++;
+            if(ch4.value === 'A') correctCount++;
+            if(ch5.value === 'B') correctCount++;
+
+            if(correctCount === 5) {
+                showJuaraModal("Hebat! Kamu menjawab ke-5 soal Physics Challenge dengan benar!");
+                addCoins(50, 'Physics Challenge');
+            } else {
+                alert(`Kamu menjawab benar ${correctCount} dari 5 soal challenge. Ayo periksa kembali gambarnya dan coba lagi!`);
+            }
+        }
+
+        // --- Validasi Penilaian Asesmen Akhir ---
+        function submitAllAsesmen() {
+            const as1 = document.querySelector('input[name="as1"]:checked');
+            const as2 = document.querySelector('input[name="as2"]:checked');
+            const as3 = document.querySelector('input[name="as3"]:checked');
+            const as4 = document.querySelector('input[name="as4"]:checked');
+            const as5 = document.querySelector('input[name="as5"]:checked');
+
+            if(!as1 || !as2 || !as3 || !as4 || !as5) {
+                alert("Mohon jawab seluruh 5 soal asesmen akhir terlebih dahulu!");
+                return;
+            }
+
+            let correctCount = 0;
+            if(as1.value === 'A') correctCount++;
+            if(as2.value === 'B') correctCount++;
+            if(as3.value === 'B') correctCount++;
+            if(as4.value === 'C') correctCount++;
+            if(as5.value === 'A') correctCount++;
+
+            if(correctCount === 5) {
+                showJuaraModal("Luar biasa! Kamu menjawab ke-5 soal asesmen dengan benar.");
+                addCoins(125, 'Asesmen Akhir');
+            } else {
+                alert(`Kamu menjawab benar ${correctCount} dari 5 soal. Ayo periksa kembali materinya di Memory Lab dan coba lagi!`);
+            }
+        }
+    </script>
+</body>
+</html>
